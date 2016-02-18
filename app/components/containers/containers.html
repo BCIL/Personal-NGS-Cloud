@@ -1,0 +1,46 @@
+
+<h2>Start new Pipelines</h2>
+
+<div>
+    <ul class="nav nav-pills pull-left">
+        <li class="dropdown">
+            <a class="dropdown-toggle" id="drop4" role="button" data-toggle="dropdown" data-target="#">Actions <b class="caret"></b></a>
+            <ul id="menu1" class="dropdown-menu" role="menu" aria-labelledby="drop4">
+                <li><a tabindex="-1" href="" ng-click="startAction()">Start</a></li>
+                <li><a tabindex="-1" href="" ng-click="stopAction()">Stop</a></li>
+                <li><a tabindex="-1" href="" ng-click="restartAction()">Restart</a></li>
+                <li><a tabindex="-1" href="" ng-click="killAction()">Kill</a></li>
+                <li><a tabindex="-1" href="" ng-click="pauseAction()">Pause</a></li>
+                <li><a tabindex="-1" href="" ng-click="unpauseAction()">Unpause</a></li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="pull-right form-inline">
+        <input type="checkbox" ng-model="displayAll" id="displayAll" ng-change="toggleGetAll()"/> <label for="displayAll">Display All</label>&nbsp;
+        <input type="text" class="form-control" style="vertical-align: center" id="filter" placeholder="Filter" ng-model="filter"/> <label class="sr-only" for="filter">Filter</label>
+    </div>
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th><input type="checkbox" ng-model="toggle" ng-change="toggleSelectAll()" /> Additional Actions</th>
+            <th>Name</th>
+            <th>Pipeline (tag)</th>
+            <th>Command</th>
+            <th>Created</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr ng-repeat="container in containers | filter:filter | orderBy:predicate">
+            <td><input type="checkbox" ng-model="container.Checked" /></td>
+            <!--<td><a href="#/containers/{{ container.Id }}/">{{ container|containername}}</a></td>-->
+            <td>{{ container|containername}}</td>
+            <td><a href="#/images/{{ container.Image }}/">{{ container|tagnameOnly }}</a></td>
+            <td>{{ container.Command|truncate:40 }}</td>
+            <td>{{ container.Created|getdate }}</td>
+            <td><span class="label label-{{ container.Status|statusbadge }}">{{ container.Status }}</span></td>
+        </tr>
+    </tbody>
+</table>

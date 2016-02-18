@@ -1,0 +1,96 @@
+<div>
+    <div class="row">
+        <div class="col-xs-12" id="masthead" style="display:none">
+            <div class="jumbotron">
+                <h1>BioIT Core - DockerUI</h1>
+                <span><h3>Try our public Galaxy server 
+                <a class="btn btn-large btn-success" href="http://146.75.173.35">Hunter Galaxy</a></h3></span>
+<!--
+                <p class="lead">The Linux container engine</p>
+                <a class="btn btn-large btn-success" href="http://docker.io">Learn more.</a>
+-->
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-12">
+            <aside>
+                <h3>All Pipelines</h3>
+                <div class="pull-right form-inline">
+                    <input type="checkbox" ng-model="displayAll" id="displayAll" ng-change="toggleGetAll()"/> 
+                    <label for="displayAll">Display All</label>&nbsp;&nbsp;
+                    <i class="fa fa-search"></i>
+                    <input type="text" class="form-control" style="vertical-align: center" id="filter" placeholder="Filter" ng-model="filter"/> <label class="sr-only" for="filter">Filter</label>
+                </div>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Run / Stop</th>
+                            <th id="dash_sort_th" ng-click="order('Names[0]')">Pipeline ID (username)
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Names[0]'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                            <th id="dash_sort_th" ng-click="order('Image')">Pipeline Name
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Image'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                            <th id="dash_sort_th" ng-click="order('Created')">Started
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Created'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                            <th id="dash_sort_th" ng-click="order('Status')">Status
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Status'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="container in containers | filter:filter | orderBy:sortKey:reverse">
+                            <td><a href='#/containers/{{ container.Id }}/'><span ng-click='start()' class="btn btn-{{ container.Status|runstopbtn}} btn-xs">{{ container.Status|runstopbtn_text }}</span></td>
+                            <td>{{ container|containername}}</td>
+                            <td>{{ container|reponameOnly }}</td>
+                            <td>{{ container|getStartedTime }}</td>
+                            <td><span class="label label-{{ container.Status|statusbadge }}">{{ container.Status|dashboard_status }}</span></td>
+                            <td>{{ containers|chk_containers }}</td>
+                        </tr>
+                    </tbody>
+               </table>
+            </aside>
+            <aside style="float: left">
+                <div class="status_chart_group">
+                    <h3>Status</h3>                    
+                    <canvas id="containers-chart" style="width:'75%';height:'75%'">
+                        <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a
+                                href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+                    </canvas>
+                    <div id="chart-legend" style="margin-left:10%"></div>
+                </div>
+            </aside>
+            <aside style="float: left; margin-left: 5%">
+                <div class="occupied_ports_group">
+                    <h3>Open ports</h3>
+                    <ul id="occupied_ports">
+                    </ul>
+                </div>
+
+            </aside>
+            <aside style="float: left; margin-left: 5%">
+                <div class="running_pipelines_group">
+                    <h3>Running Pipelines</h3>
+                    <ul id="occupied_ports">
+                    </ul>
+                </div>
+
+            </aside>
+        </div>
+    </div>
+<!--
+    <div class="row">
+        <div class="col-xs-12" id="stats">
+            <h4>Containers created</h4>
+            <canvas id="containers-started-chart">
+                <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a
+                        href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+            </canvas>
+            <h4>Images created</h4>
+            <canvas id="images-created-chart">
+                <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a
+                        href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+            </canvas>
+        </div>
+    </div>
+-->
+</div>
