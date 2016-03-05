@@ -151,7 +151,7 @@ angular.module('dashboard', [])
                             container.Image === "bcil/gatk:GATKuser1_3" ||
                             container.Image === "bcil/gatk:GATKuser2_1" ||
                             container.Image === "bcil/gatk:GATKuser2_2" ||
-                            container.Image === "bcil/gatk:GATKuser2_3" ||
+                            container.Image === "bcil/gatk:GATKuser2_3"
                             ) 
                         {
                             var image_name = ($scope.containers[i].Names[0]).replace('/','');

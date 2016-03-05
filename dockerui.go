@@ -1,4 +1,4 @@
-package main // import "github.com/crosbymichael/dockerui"
+package main
 
 import (
 	"flag"
