@@ -206,3 +206,4 @@ angular.module('startContainer', ['ui.bootstrap'])
                 array.splice(idx, 1);
             };
         }]);
+

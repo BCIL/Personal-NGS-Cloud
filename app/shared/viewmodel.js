@@ -24,3 +24,4 @@ function ContainerViewModel(data) {
         this.Ports.IP = data.Ports[0].IP;
     }
 }
+

@@ -16,7 +16,7 @@ angular.module('dockerui.services', ['ngResource'])
             unpause: {method: 'POST', params: {id: '@id', action: 'unpause'}},
             changes: {method: 'GET', params: {action: 'changes'}, isArray: true},
             create: {method: 'POST', params: {action: 'create'}},
-            remove: {method: 'DELETE', params: {id: '@id', v: 0}},
+            remove: {method: 'DELETE', params: {id: '@id', v: 1}},
             rename: {method: 'POST', params: {id: '@id', action: 'rename'}, isArray: false},
             stats: {method: 'GET', params: {id: '@id', stream: false, action: 'stats'}, timeout: 2000}
         });
@@ -105,8 +105,8 @@ angular.module('dockerui.services', ['ngResource'])
     }])
     .factory('Auth', ['$resource', 'Settings', function AuthFactory($resource, Settings) {
         'use strict';
-        // 
-        return $resource(Settings.url + '/auth', {}, {http://docs.docker.com/reference/api/docker_remote_api_<%= remoteApiVersion %>/#check-auth-configuration
+        // http://docs.docker.com/reference/api/docker_remote_api_<%= remoteApiVersion %>/#check-auth-configuration
+        return $resource(Settings.url + '/auth', {}, {
             get: {method: 'GET'},
             update: {method: 'POST'}
         });
@@ -246,3 +246,4 @@ angular.module('dockerui.services', ['ngResource'])
             }
         };
     }]);
+

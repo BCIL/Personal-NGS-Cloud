@@ -37,21 +37,7 @@ angular.module('dashboard', [])
 
         $scope.start = function () {
                 window.test_cont = Container;
-                //console.log("start function works")
-            /*
-                Container.start({
-                    id: $scope.container.Id,
-                    HostConfig: $scope.container.HostConfig
-                }, function (d) {
-                    update();
-                    Messages.send("Container started", $routeParams.id);
-                }, function (e) {
-                    update();
-                    Messages.error("Failure", "Container failed to start." + e.data);
-                });
-            */
         };
-        //$scope.displayAll = true;
         $scope.myFilter = function (container) {
             return container.Image === "bcil/chip-seq:ChIPsequser_1" || container.Image === "bcil/chip-seq:ChIPsequser_2" ||container.Image === "bcil/chip-seq:ChIPsequser_3" || container.Image === "bcil/rna-seq:RNAsequser_tophat1_1" || container.Image === "bcil/rna-seq:RNAsequser_tophat1_2" || container.Image === "bcil/rna-seq:RNAsequser_tophat1_3" || container.Image === "bcil/rna-seq:RNAsequser_tophat2_1" || container.Image === "bcil/rna-seq:RNAsequser_tophat2_2" || container.Image === "bcil/rna-seq:RNAsequser_tophat2_3" || container.Image === "bcil/gatk:GATKuser1_1" || container.Image === "bcil/gatk:GATKuser1_2" || container.Image === "bcil/gatk:GATKuser1_3" || container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_3";
         }
@@ -102,7 +88,6 @@ angular.module('dashboard', [])
                 }
             }
 
-            //getStarted(d);      // generates linecharts
             window.test_scope_cont = $scope.containers;
             var data = [
                 {
@@ -119,15 +104,6 @@ angular.module('dashboard', [])
                     label: 'Stopped',
                     title: 'Stopped'
                 } // stopped
-                /*
-                {
-                    value: ghost,
-                    color: '#a6a6a6',
-                    highlight: '#bfbfbf',
-                    label: 'Ghost',
-                    title: 'Ghost'
-                } // ghost
-                */
             ];
 
             var ctx = $('#containers-chart').get(0).getContext("2d")
@@ -164,19 +140,10 @@ angular.module('dashboard', [])
                     }
                 }
                 ViewSpinner.stop();
-            },600);
-
-            var refresh_interval = 3000//(1000 * 60) * 5;
-            /*
-            setInterval(function() {
-                $('#containers-chart').empty();
-                $('#chart-legend').empty();
-                //$route.reload();
-                $window.location.reload();
-            }, refresh_interval);
-            */
+            },600);           
         });
         $('#containers-started-chart').css('width', '80%');
         $('#images-created-chart').css('width', '80%');
         $('#displayAll_chk').hide();
     }]);
+

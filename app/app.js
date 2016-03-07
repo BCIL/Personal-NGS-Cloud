@@ -1,7 +1,6 @@
 angular.module('dockerui', ['dockerui.templates', 'ngRoute', 'dockerui.services', 'dockerui.filters', 'masthead', 'footer', 'dashboard', 'container', 'containers', 'containersNetwork', 'images', 'image', 'pullImage', 'startContainer', 'sidebar', 'info', 'builder', 'containerLogs', 'containerTop', 'events', 'stats'])
     .config(['$routeProvider', function ($routeProvider) {
         'use strict';
-        
         $routeProvider.when('/', {
             templateUrl: 'app/components/dashboard/dashboard.html',
             controller: 'DashboardController'
@@ -10,18 +9,6 @@ angular.module('dockerui', ['dockerui.templates', 'ngRoute', 'dockerui.services'
             templateUrl: 'app/components/containers/containers.html',
             controller: 'ContainersController'
         });
-
-       
-/* 
-        $routeProvider.when('/', {
-            templateUrl: 'app/components/containers/containers.html',
-            controller: 'ContainersController'
-        });
-        $routeProvider.when('/dashboard/', {
-            templateUrl: 'app/components/dashboard/dashboard.html',
-            controller: 'DashboardController'
-        });
-*/
         $routeProvider.when('/containers/:id/', {
             templateUrl: 'app/components/container/container.html',
             controller: 'ContainerController'

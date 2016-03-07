@@ -267,3 +267,4 @@ angular.module('dockerui.filters', [])
             window.test_image_create = img;
         }
     });
+
