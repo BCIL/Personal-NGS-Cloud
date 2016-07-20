@@ -53,7 +53,7 @@ angular.module('dashboard', [])
         };
         //$scope.displayAll = true;
         $scope.myFilter = function (container) {
-            var ChIPsequser = "ChIPsequser_dockerui"
+            var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
             var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
             var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
             return container.Image === ChIPsequser+'_1' || container.Image === ChIPsequser+'_2' ||container.Image === ChIPsequser+'_3' || container.Image === RNAsequser_tophat1+'_1' || container.Image === RNAsequser_tophat1+'_2' || container.Image === RNAsequser_tophat1+'_3' || container.Image === RNAsequser_tophat2+'_1' || container.Image === RNAsequser_tophat2+'_2' || container.Image === RNAsequser_tophat2+'_3' || container.Image === "bcil/gatk:GATKuser1_1" || container.Image === "bcil/gatk:GATKuser1_2" || container.Image === "bcil/gatk:GATKuser1_3" || container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_3";
@@ -73,7 +73,7 @@ angular.module('dashboard', [])
             }, 5000);
         }
         function valid_pipeline(item){
-            var ChIPsequser = "ChIPsequser_dockerui"
+            var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
             var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
             var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
             if (item.Image === ChIPsequser+'_1' || item.Image === ChIPsequser+'_2' ||item.Image === ChIPsequser+'_3' || item.Image === RNAsequser_tophat1+'_1' || item.Image === RNAsequser_tophat1+'_2' || item.Image === RNAsequser_tophat1+'_3' || item.Image === RNAsequser_tophat2+'_1' || item.Image === RNAsequser_tophat2+'_2' || item.Image === RNAsequser_tophat2+'_3' || item.Image === "bcil/gatk:GATKuser1_1" || item.Image === "bcil/gatk:GATKuser1_2" || item.Image === "bcil/gatk:GATKuser1_3" || item.Image === "bcil/gatk:GATKuser2_1" || item.Image === "bcil/gatk:GATKuser2_2" || item.Image === "bcil/gatk:GATKuser2_3") 
@@ -148,7 +148,7 @@ angular.module('dashboard', [])
                 'use strict';
                 ViewSpinner.spin();
                 $('#occupied_ports').empty();
-                var ChIPsequser = "ChIPsequser_dockerui"
+                var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
                 var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
                 var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
                 for (var i=0;i<$scope.containers.length;i++){
