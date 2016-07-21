@@ -91,7 +91,7 @@ angular.module('dockerui.filters', [])
         'use strict';
         return function (state) {
             if (state === undefined) {
-                return '';
+                return 'Stopped';
             }
             if (state.Ghost && state.Running) {
                 return 'Ghost';
@@ -109,7 +109,7 @@ angular.module('dockerui.filters', [])
         'use strict';
         return function (state) {
             if (state === undefined) {
-                return '';
+                return 'label-default';
             }
             if (state.Ghost && state.Running) {
                 return 'label-important';
@@ -117,7 +117,7 @@ angular.module('dockerui.filters', [])
             if (state.Running) {
                 return 'label-success';
             }
-            return '';
+            return 'label-default';
         };
     })
     .filter('humansize', function () {

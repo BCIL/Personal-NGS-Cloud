@@ -58,13 +58,13 @@
             </td>
         </tr>
         <tr>
-            <td>Internal Ports:</td>
+            <td>Internal Port:</td>
             <td>
                 <li ng-repeat="(k, v) in container.Config.ExposedPorts">{{ k }}</li>
             </td>
         </tr>
         <tr>
-            <td>Exposed Ports:</td>
+            <td>Exposed Port:</td>
             <td>
                 <li ng-repeat="(containerport, hostports) in container.HostConfig.PortBindings">
                     <span ng-repeat="(k,v) in hostports">{{ v.HostPort }}/tcp</span>
