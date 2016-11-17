@@ -83,6 +83,11 @@ angular.module('image', [])
                 return defer.promise;
             }
 
+            /**
+             * Get RepoTags from the /images/query endpoint instead of /image/json,
+             * for backwards compatibility with Docker API versions older than 1.21
+             * @param {string} imageId
+             */
             function getRepoTags(imageId) {
                 Image.query({}, function (d) {
                     d.forEach(function(image) {

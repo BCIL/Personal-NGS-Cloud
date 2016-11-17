@@ -26,6 +26,8 @@ function GitResolver(decEndpoint, config, logger) {
     // anyway
     mkdirp.sync(config.storage.empty);
     process.env.GIT_TEMPLATE_DIR = config.storage.empty;
+    process.env.GIT_SSL_NO_VERIFY = (!config.strictSsl).toString();
+    process.env.GIT_TERMINAL_PROMPT = config.interactive ? '1' : '0';
 
     Resolver.call(this, decEndpoint, config, logger);
 

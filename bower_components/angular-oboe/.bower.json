@@ -26,13 +26,13 @@
     "angular-ui-router": "~0.2.11",
     "angular-virtual-scroll": "~0.6.2"
   },
-  "_release": "b91fd8dccd",
+  "_release": "3b7f056018",
   "_resolution": {
     "type": "branch",
     "branch": "master",
-    "commit": "b91fd8dccdceb130f6c3b7619f213a19ffad2dad"
+    "commit": "3b7f056018845a2b71192bf1c829f403455a5dc9"
   },
-  "_source": "git://github.com/RonB/angular-oboe.git",
+  "_source": "https://github.com/RonB/angular-oboe.git",
   "_target": "*",
   "_originalSource": "angular-oboe"
 }

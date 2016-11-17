@@ -1,4 +1,4 @@
-angular.module('dockerui.services', ['ngResource'])
+angular.module('uifordocker.services', ['ngResource'])
     .factory('Container', ['$resource', 'Settings', function ContainerFactory($resource, Settings) {
         'use strict';
         // Resource for interacting with the docker containers

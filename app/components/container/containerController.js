@@ -1,15 +1,66 @@
-angular.module('container', [])
-    .controller('ContainerController', ['$scope', '$routeParams', '$location', 'Container', 'ContainerCommit', 'Messages', 'ViewSpinner',
-        function ($scope, $routeParams, $location, Container, ContainerCommit, Messages, ViewSpinner) {
+    angular.module('container', [])
+    .controller('ContainerController', ['$scope', '$routeParams', '$location', 'Container', 'ContainerCommit', 'Image', 'Messages', 'ViewSpinner', '$timeout',
+        function ($scope, $routeParams, $location, Container, ContainerCommit, Image, Messages, ViewSpinner, $timeout) {
             $scope.changes = [];
-            $scope.edit = false;
+            $scope.editEnv = false;
+            $scope.editPorts = false;
+            $scope.editBinds = false;
+            $scope.newCfg = {
+                Env: [],
+                Ports: {}
+            };
 
             var update = function () {
                 ViewSpinner.spin();
                 Container.get({id: $routeParams.id}, function (d) {
                     $scope.container = d;
                     $scope.container.edit = false;
-                    $scope.container.newContainerName = '';
+                    $scope.container.newContainerName = d.Name;
+
+                    // fill up env
+                    if (d.Config.Env) {
+                        $scope.newCfg.Env = d.Config.Env.map(function (entry) {
+                            return {name: entry.split('=')[0], value: entry.split('=')[1]};
+                        });
+                    }
+
+                    // fill up ports
+                    $scope.newCfg.Ports = {};
+                    angular.forEach(d.Config.ExposedPorts, function(i, port) {
+                        if (d.HostConfig.PortBindings && port in d.HostConfig.PortBindings) {
+                            $scope.newCfg.Ports[port] = d.HostConfig.PortBindings[port];
+                        }
+                        else {
+                            $scope.newCfg.Ports[port] = [];
+                        }
+                    });
+
+                    // fill up bindings
+                    $scope.newCfg.Binds = [];
+                    var defaultBinds = {};
+                    angular.forEach(d.Config.Volumes, function(value, vol) {
+                        defaultBinds[vol] = { ContPath: vol, HostPath: '', ReadOnly: false, DefaultBind: true };
+                    });
+                    angular.forEach(d.HostConfig.Binds, function(binding, i) {
+                        var mountpoint = binding.split(':')[0];
+                        var vol = binding.split(':')[1] || '';
+                        var ro = binding.split(':').length > 2 && binding.split(':')[2] === 'ro';
+                        var defaultBind = false;
+                        if (vol === '') {
+                            vol = mountpoint;
+                            mountpoint = '';
+                        }
+
+                        if (vol in defaultBinds) {
+                            delete defaultBinds[vol];
+                            defaultBind = true;
+                        }
+                        $scope.newCfg.Binds.push({ ContPath: vol, HostPath: mountpoint, ReadOnly: ro, DefaultBind: defaultBind });
+                    });
+                    angular.forEach(defaultBinds, function(bind) {
+                        $scope.newCfg.Binds.push(bind);
+                    });
+
                     ViewSpinner.stop();
                 }, function (e) {
                     if (e.status === 404) {
@@ -20,6 +71,7 @@ angular.module('container', [])
                     }
                     ViewSpinner.stop();
                 });
+
             };
 
             var display_galaxy_init = function () {
@@ -40,11 +92,10 @@ angular.module('container', [])
 
             $scope.start = function () {
                 ViewSpinner.spin();
-                display_galaxy_init();
                 Container.start({
-                    id: $scope.container.Id,
-                    HostConfig: $scope.container.HostConfig
-                }, function (d) {
+                    id: $scope.container.Id
+                }, {}, function (d) {
+                    display_galaxy_init();
                     update();
                     Messages.send("Pipeline started", $routeParams.id);
                 }, function (e) {
@@ -79,6 +130,109 @@ angular.module('container', [])
                         Messages.error("Failure", "Pipeline failed to die." + e.data);
                     });
                 }
+            };
+
+            $scope.restartEnv = function () {
+                var config = angular.copy($scope.container.Config);
+
+                config.Env = $scope.newCfg.Env.map(function(entry) {
+                    return entry.name+"="+entry.value;
+                });
+
+                var portBindings = angular.copy($scope.newCfg.Ports);
+                angular.forEach(portBindings, function(item, key) {
+                    if (item.length === 0) {
+                        delete portBindings[key];
+                    }
+                });
+
+
+                var binds = [];
+                angular.forEach($scope.newCfg.Binds, function(b) {
+                    if (b.ContPath !== '') {
+                        var bindLine = '';
+                        if (b.HostPath !== '') {
+                            bindLine = b.HostPath + ':';
+                        }
+                        bindLine += b.ContPath;
+                        if (b.ReadOnly) {
+                            bindLine += ':ro';
+                        }
+                        if (b.HostPath !== '' || !b.DefaultBind) {
+                            binds.push(bindLine);
+                        }
+                    }
+                });
+
+
+                ViewSpinner.spin();
+                ContainerCommit.commit({id: $routeParams.id, tag: $scope.container.Config.Image, config: config }, function (d) {
+                    if ('Id' in d) {
+                        var imageId = d.Id;
+                        Image.inspect({id: imageId}, function(imageData) {
+                            // Append current host config to image with new port bindings
+                            imageData.Config.HostConfig = angular.copy($scope.container.HostConfig);
+                            imageData.Config.HostConfig.PortBindings = portBindings;
+                            imageData.Config.HostConfig.Binds = binds;
+                            if (imageData.Config.HostConfig.NetworkMode === 'host') {
+                                imageData.Config.Hostname = '';
+                            }
+
+                            Container.create(imageData.Config, function(containerData) {
+                                if (!('Id' in containerData)) {
+                                    Messages.error("Failure", "Pipeline failed to create.");
+                                    return;
+                                }
+                                // Stop current if running
+                                if ($scope.container.State.Running) {
+                                    Container.stop({id: $routeParams.id}, function (d) {
+                                        Messages.send("Pipeline stopped", $routeParams.id);
+                                        // start new
+                                        Container.start({
+                                            id: containerData.Id
+                                        }, function (d) {
+                                            $location.url('/containers/' + containerData.Id + '/');
+                                            Messages.send("Pipeline started", $routeParams.id);
+                                        }, function (e) {
+                                            update();
+                                            Messages.error("Failure", "Pipeline failed to start." + e.data);
+                                        });
+                                    }, function (e) {
+                                        update();
+                                        Messages.error("Failure", "Pipeline failed to stop." + e.data);
+                                    });
+                                } else {
+                                    // start new
+                                    Container.start({
+                                        id: containerData.Id
+                                    }, function (d) {
+                                        $location.url('/containers/'+containerData.Id+'/');
+                                        Messages.send("Pipeline started", $routeParams.id);
+                                    }, function (e) {
+                                        update();
+                                        Messages.error("Failure", "Pipeline failed to start." + e.data);
+                                    });
+                                }
+
+                            }, function(e) {
+                                update();
+                                Messages.error("Failure", "Image failed to get." + e.data);
+                            });
+                        }, function (e) {
+                            update();
+                            Messages.error("Failure", "Image failed to get." + e.data);
+                        });
+
+                    } else {
+                        update();
+                        Messages.error("Failure", "Pipeline commit failed.");
+                    }
+
+
+                }, function (e) {
+                    update();
+                    Messages.error("Failure", "Pipeline failed to commit." + e.data);
+                });
             };
 
             $scope.commit = function () {
@@ -117,6 +271,7 @@ angular.module('container', [])
                 ViewSpinner.spin();
                 Container.remove({id: $routeParams.id}, function (d) {
                     update();
+                    $location.path('/containers');
                     Messages.send("Pipeline removed", $routeParams.id);
                 }, function (e) {
                     update();
@@ -125,17 +280,14 @@ angular.module('container', [])
             };
 
             $scope.restart = function () {
-                var user_confirm = confirm("The pipeline will be restarted!\nContinue?");
-                if (user_confirm) {
-                    ViewSpinner.spin();
-                    Container.restart({id: $routeParams.id}, function (d) {
-                        update();
-                        Messages.send("Pipeline restarted", $routeParams.id);
-                    }, function (e) {
-                        update();
-                        Messages.error("Failure", "Pipeline failed to restart." + e.data);
-                    });
-                }
+                ViewSpinner.spin();
+                Container.restart({id: $routeParams.id}, function (d) {
+                    update();
+                    Messages.send("Pipeline restarted", $routeParams.id);
+                }, function (e) {
+                    update();
+                    Messages.error("Failure", "Pipeline failed to restart." + e.data);
+                });
             };
 
             $scope.hasContent = function (data) {
@@ -155,13 +307,25 @@ angular.module('container', [])
                 Container.rename({id: $routeParams.id, 'name': $scope.container.newContainerName}, function (data) {
                     if (data.name) {
                         $scope.container.Name = data.name;
-                        Messages.send("Username updated successfully!", $routeParams.id);
+                        Messages.send("Pipeline renamed", $routeParams.id);
                     } else {
                         $scope.container.newContainerName = $scope.container.Name;
                         Messages.error("Failure!", "Failed to update username.\nPlease check if the username is already taken.");
                     }
                 });
                 $scope.container.edit = false;
+            };
+
+            $scope.addEntry = function (array, entry) {
+                array.push(entry);
+            };
+            $scope.rmEntry = function (array, entry) {
+                var idx = array.indexOf(entry);
+                array.splice(idx, 1);
+            };
+
+            $scope.toggleEdit = function() {
+                $scope.edit = !$scope.edit;
             };
 
             update();
@@ -172,6 +336,4 @@ angular.module('container', [])
                     $scope.edit = true;
                 }
             },500)
-            
         }]);
-

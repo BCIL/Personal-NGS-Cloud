@@ -52,7 +52,7 @@ function pluginResolverFactory(resolverFactory, bower) {
         return this._decEndpoint.target || '*';
     };
 
-    PluginResolver.prototype.getName = function() {
+    PluginResolver.prototype.getName = function () {
         if (!this._decEndpoint.name && typeof resolver.getName === 'function') {
             return resolver.getName.call(resolver, this.getSource());
         } else if (!this._decEndpoint.name) {
@@ -70,7 +70,7 @@ function pluginResolverFactory(resolverFactory, bower) {
 
     // Plugin Resolver is always considered potentially cacheable
     // The "resolve" method decides whether to use cached or fetch new version.
-    PluginResolver.prototype.isCacheable = function() {
+    PluginResolver.prototype.isCacheable = function () {
         return true;
     };
 
@@ -95,11 +95,11 @@ function pluginResolverFactory(resolverFactory, bower) {
 
         var that = this;
 
-        return this.resolvePromise = Q.fcall(function() {
+        return this.resolvePromise = Q.fcall(function () {
             var target = that.getTarget();
 
             // It means that we can accept ranges as targets
-            if(that.constructor.isTargetable()) {
+            if (that.constructor.isTargetable()) {
                 that._release = target;
 
                 if (semver.validRange(target)) {
@@ -191,7 +191,8 @@ function pluginResolverFactory(resolverFactory, bower) {
         var that = this;
 
         return readJson(dir, {
-            assume: { name: that.getName() }
+            assume: { name: that.getName() },
+            logger: bower.logger
         })
         .spread(function (json, deprecated) {
             if (deprecated) {
@@ -275,7 +276,7 @@ function pluginResolverFactory(resolverFactory, bower) {
         });
     };
 
-    PluginResolver.isTargetable = function() {
+    PluginResolver.isTargetable = function () {
         // If resolver doesn't define versions function, it's not targetable..
         return typeof resolver.releases === 'function';
     };

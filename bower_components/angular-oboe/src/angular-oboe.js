@@ -29,12 +29,12 @@ angular.module('ngOboe', [])
                                     defer.notify(node);
                                     return oboe.drop;
                                 })
-                                .done(function () {
+                                .done(function (parsedJSON) {
                                     if (typeof params.done === 'function') {
-                                        params.done();
+                                        params.done(parsedJSON);
                                     }
                                     // resolve the promise
-                                    defer.resolve();
+                                    defer.resolve(parsedJSON);
                                     // make sure oboe cleans up memory
                                     return oboe.drop;
                                 });

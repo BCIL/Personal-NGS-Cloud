@@ -1,7 +1,7 @@
 describe('startContainerController', function () {
     var scope, $location, createController, mockContainer, $httpBackend;
 
-    beforeEach(angular.mock.module('dockerui'));
+    beforeEach(angular.mock.module('uifordocker'));
 
     beforeEach(inject(function ($rootScope, $controller, _$location_) {
         $location = _$location_;
@@ -20,11 +20,11 @@ describe('startContainerController', function () {
     }));
     function expectGetContainers() {
         $httpBackend.expectGET('dockerapi/containers/json?all=1').respond([{
-            'Command': './dockerui -e /docker.sock',
+            'Command': './uifordocker -e /docker.sock',
             'Created': 1421817232,
             'Id': 'b17882378cee8ec0136f482681b764cca430befd52a9bfd1bde031f49b8bba9f',
-            'Image': 'dockerui:latest',
-            'Names': ['/dockerui'],
+            'Image': 'uifordocker:latest',
+            'Names': ['/uifordocker'],
             'Ports': [{
                 'IP': '0.0.0.0',
                 'PrivatePort': 9000,
@@ -111,6 +111,43 @@ describe('startContainerController', function () {
         });
     });
 
+    describe('Create and start a container with labels', function () {
+        it('should issue a correct create request to the Docker remote API', function () {
+            var controller = createController();
+            var id = '6abd8bfba81cf8a05a76a4bdefcb36c4b66cd02265f4bfcd0e236468696ebc6c';
+            var expectedBody = {
+                'name': 'container-name',
+                'Labels': {
+                    "org.foo.bar": "Baz",
+                    "com.biz.baz": "Boo"
+                }
+            };
+
+            expectGetContainers();
+
+            $httpBackend.expectPOST('dockerapi/containers/create?name=container-name', expectedBody).respond({
+                'Id': id,
+                'Warnings': null
+            });
+            $httpBackend.expectPOST('dockerapi/containers/' + id + '/start').respond({
+                'id': id,
+                'Warnings': null
+            });
+
+            scope.config.name = 'container-name';
+            scope.config.Labels = [{
+                key: 'org.foo.bar',
+                value: 'Baz'
+            }, {
+                key: 'com.biz.baz',
+                value: 'Boo'
+            }];
+
+            scope.create();
+            $httpBackend.flush();
+        });
+    });
+
     describe('Create and start a container with volumesFrom', function () {
         it('should issue a correct create request to the Docker remote API', function () {
             var controller = createController();
@@ -162,9 +199,15 @@ describe('startContainerController', function () {
                     }],
                     LxcConf: {'lxc.utsname': 'docker'},
                     ExtraHosts: ['hostname:127.0.0.1'],
+                    PublishAllPorts: true,
+                    Privileged: true,
                     RestartPolicy: {name: 'always', MaximumRetryCount: 5}
                 },
-                name: 'container-name'
+                name: 'container-name',
+                NetworkDisabled: true,
+                Tty: true,
+                OpenStdin: true,
+                StdinOnce: true
             };
 
             expectGetContainers();

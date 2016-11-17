@@ -14,10 +14,30 @@ module.exports = function (grunt) {
 
     // Default task.
     grunt.registerTask('default', ['jshint', 'build', 'karma:unit']);
-    grunt.registerTask('build', ['clean:app', 'if:binaryNotExist', 'html2js', 'concat', 'clean:tmpl', 'recess:build', 'copy']);
-    grunt.registerTask('release', ['clean:all', 'if:binaryNotExist', 'html2js', 'uglify', 'clean:tmpl', 'jshint', 'karma:unit', 'concat:index', 'recess:min', 'copy']);
+    grunt.registerTask('build', [
+        'clean:app',
+        'if:binaryNotExist',
+        'html2js',
+        'concat',
+        'clean:tmpl',
+        'recess:build',
+        'copy'
+    ]);
+    grunt.registerTask('release', [
+        'clean:app',
+        'if:binaryNotExist',
+        'html2js',
+        'uglify',
+        'clean:tmpl',
+        'jshint',
+        'karma:unit',
+        'concat:index',
+        'recess:min',
+        'copy'
+    ]);
     grunt.registerTask('test-watch', ['karma:watch']);
     grunt.registerTask('run', ['if:binaryNotExist', 'build', 'shell:buildImage', 'shell:run']);
+    grunt.registerTask('runSwarm', ['if:binaryNotExist', 'build', 'shell:buildImage', 'shell:runSwarm']);
     grunt.registerTask('run-dev', ['if:binaryNotExist', 'shell:buildImage', 'shell:run', 'watch:build']);
 
     // Print a timestamp (useful for when watching)
@@ -45,7 +65,7 @@ module.exports = function (grunt) {
             jsTpl: ['<%= distdir %>/templates/**/*.js'],
             jsVendor: [
                 'bower_components/jquery/dist/jquery.js',
-                'bower_components/jquery.gritter/js/jquery.gritter.js',
+                'assets/js/jquery.gritter.js', // Using custom version to fix error in minified build due to "use strict"
                 'bower_components/bootstrap/dist/js/bootstrap.js',
                 'bower_components/spin.js/spin.js',
                 'bower_components/vis/dist/vis.js',
@@ -66,7 +86,7 @@ module.exports = function (grunt) {
         },
         clean: {
             all: ['<%= distdir %>/*'],
-            app: ['<%= distdir %>/*', '!<%= distdir %>/dockerui'],
+            app: ['<%= distdir %>/*', '!<%= distdir %>/uifordocker'],
             tmpl: ['<%= distdir %>/templates']
         },
         copy: {
@@ -133,6 +153,7 @@ module.exports = function (grunt) {
             },
             angular: {
                 src: ['bower_components/angular/angular.js',
+                    'bower_components/angular-sanitize/angular-sanitize.js',
                     'bower_components/angular-route/angular-route.js',
                     'bower_components/angular-resource/angular-resource.js',
                     'bower_components/angular-bootstrap/ui-bootstrap-tpls.js',
@@ -223,21 +244,28 @@ module.exports = function (grunt) {
         },
         shell: {
             buildImage: {
-                command: 'docker build --rm -t dockerui .'
+                command: 'docker build --rm -t uifordocker .'
             },
             buildBinary: {
                 command: [
-                    'docker run --rm -v $(pwd):/src centurylink/golang-builder',
-                    'shasum dockerui > dockerui-checksum.txt',
+                    'docker run --rm -v $(pwd)/api:/src centurylink/golang-builder',
+                    'shasum api/uifordocker > uifordocker-checksum.txt',
                     'mkdir -p dist',
-                    'mv dockerui dist/'
-                ].join('&&')
+                    'mv api/uifordocker dist/'
+                ].join(' && ')
             },
             run: {
                 command: [
-                    'docker stop dockerui',
-                    'docker rm dockerui',
-                    'docker run --restart=always --privileged -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock --name dockerui dockerui'
+                    'docker stop uifordocker',
+                    'docker rm uifordocker',
+                    'docker run --privileged -d -p 9000:9000 -v /tmp/uifordocker:/data -v /var/run/docker.sock:/var/run/docker.sock --name uifordocker uifordocker -d /data'
+                ].join(';')
+            },
+            runSwarm: {
+                command: [
+                    'docker stop uifordocker',
+                    'docker rm uifordocker',
+                    'docker run --net=host -d -v /tmp/uifordocker:/data --name uifordocker uifordocker -d /data -H tcp://127.0.0.1:2374'
                 ].join(';')
             },
             cleanImages: {
@@ -247,11 +275,10 @@ module.exports = function (grunt) {
         'if': {
             binaryNotExist: {
                 options: {
-                    executable: 'dist/dockerui'
+                    executable: 'dist/uifordocker'
                 },
                 ifFalse: ['shell:buildBinary']
             }
         }
     });
 };
-

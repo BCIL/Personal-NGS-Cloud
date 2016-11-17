@@ -20,10 +20,6 @@ function readCachedConfig(cwd, overwrites) {
 
     object.mixIn(config, configstore);
 
-    // Delete the json attribute because it is no longer supported
-    // and conflicts with --json
-    delete config.json;
-
     // If interactive is auto (null), guess its value
     if (config.interactive == null) {
         config.interactive = (
@@ -51,13 +47,13 @@ function readCachedConfig(cwd, overwrites) {
     return config;
 }
 
-function restoreConfig () {
+function restoreConfig() {
     if (current) {
         current.restore();
     }
 }
 
-function resetCache () {
+function resetCache() {
     restoreConfig();
     current = undefined;
 }

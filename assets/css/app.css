@@ -109,27 +109,13 @@
 .inline-four .form-control {
     max-width: 25%;
 }
-.inline-portbinding .form-control {
-    max-width: 100%;
-}
 
 .dropdown {
     cursor: pointer;
 }
 
-#dash_sort_th {
-    cursor: pointer;
+.navbar-brand > img {
+    max-height: 100%; 
+    float: left;
+    margin-right: 6px;
 }
-
-.portbinding-label {
-    font-size: 0.8em;
-}
-
-input.ng-invalid { 
-    background:#F6CECE;
-    border: 2px red solid;
-}
-
-span.err { color: #FA8258; }
-
-

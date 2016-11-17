@@ -78,12 +78,12 @@ var run = function (cmdString, action, logger, config) {
 
 var hook = function (action, ordered, config, logger, packages, installed, json) {
     if (mout.object.keys(packages).length === 0 || !config.scripts || !config.scripts[action]) {
-        /*jshint newcap: false  */
         return Q();
     }
 
     var orderedPackages = ordered ? orderByDependencies(packages, installed, json) : mout.object.keys(packages);
-    var cmdString = mout.string.replace(config.scripts[action], '%', orderedPackages.join(' '));
+    var placeholder = new RegExp('%', 'g');
+    var cmdString = mout.string.replace(config.scripts[action], placeholder, orderedPackages.join(' '));
     return run(cmdString, action, logger, config);
 };
 

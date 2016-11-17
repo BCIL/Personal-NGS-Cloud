@@ -1,11 +1,12 @@
 var mout = require('mout');
 var Q = require('q');
-var RegistryClient = require('bower-registry-client');
 var ResolveCache = require('./ResolveCache');
 var resolverFactory = require('./resolverFactory');
 var createError = require('../util/createError');
+var RegistryClient = require('bower-registry-client');
 
 function PackageRepository(config, logger) {
+
     var registryOptions;
 
     this._config = config;
@@ -14,6 +15,7 @@ function PackageRepository(config, logger) {
     // Instantiate the registry
     registryOptions = mout.object.deepMixIn({}, this._config);
     registryOptions.cache = this._config.storage.registry;
+
     this._registryClient = new RegistryClient(registryOptions, logger);
 
     // Instantiate the resolve cache
@@ -87,7 +89,7 @@ PackageRepository.prototype.fetch = function (decEndpoint) {
             }
 
             // Otherwise check for new contents
-            logger.action('validate', (pkgMeta._release ? pkgMeta._release + ' against ': '') +
+            logger.action('validate', (pkgMeta._release ? pkgMeta._release + ' against ' : '') +
                                       resolver.getSource() + (resolver.getTarget() ? '#' + resolver.getTarget() : ''));
 
             return resolver.hasNew(pkgMeta)

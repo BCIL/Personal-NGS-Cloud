@@ -53,10 +53,22 @@ angular.module('dashboard', [])
         };
         //$scope.displayAll = true;
         $scope.myFilter = function (container) {
-            var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
+            /*var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
             var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
             var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
-            return container.Image === ChIPsequser+'_1' || container.Image === ChIPsequser+'_2' ||container.Image === ChIPsequser+'_3' || container.Image === RNAsequser_tophat1+'_1' || container.Image === RNAsequser_tophat1+'_2' || container.Image === RNAsequser_tophat1+'_3' || container.Image === RNAsequser_tophat2+'_1' || container.Image === RNAsequser_tophat2+'_2' || container.Image === RNAsequser_tophat2+'_3' || container.Image === "bcil/gatk:GATKuser1_1" || container.Image === "bcil/gatk:GATKuser1_2" || container.Image === "bcil/gatk:GATKuser1_3" || container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_3";
+            */
+            var image_name = container.Image;
+            //var split_list = image_name.split('_')
+            if ( image_name.search("_dui_") != -1 ) {
+                return true
+            }
+            else {
+                return false
+            }
+            /*return container.Image === ChIPsequser+'_1' || container.Image === ChIPsequser+'_2' ||container.Image === ChIPsequser+'_3' || container.Image === RNAsequser_tophat1+'_1' || container.Image === RNAsequser_tophat1+'_2' || container.Image === RNAsequser_tophat1+'_3' || container.Image === RNAsequser_tophat2+'_1' || container.Image === RNAsequser_tophat2+'_2' || container.Image === RNAsequser_tophat2+'_3';
+            */
+            /* || container.Image === "bcil/gatk:GATKuser1_1" || container.Image === "bcil/gatk:GATKuser1_2" || container.Image === "bcil/gatk:GATKuser1_3" || container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_3";
+            */
         }
 
         var opts = {
@@ -73,7 +85,14 @@ angular.module('dashboard', [])
             }, 5000);
         }
         function valid_pipeline(item){
-            var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
+            var image_name = item.Image;
+            //var split_list = image_name.split('_')
+            if ( image_name.search("_dui_") != -1 ) {
+                return true;
+            }
+            else { return false; }
+
+            /*var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
             var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
             var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
             if (item.Image === ChIPsequser+'_1' || item.Image === ChIPsequser+'_2' ||item.Image === ChIPsequser+'_3' || item.Image === RNAsequser_tophat1+'_1' || item.Image === RNAsequser_tophat1+'_2' || item.Image === RNAsequser_tophat1+'_3' || item.Image === RNAsequser_tophat2+'_1' || item.Image === RNAsequser_tophat2+'_2' || item.Image === RNAsequser_tophat2+'_3' || item.Image === "bcil/gatk:GATKuser1_1" || item.Image === "bcil/gatk:GATKuser1_2" || item.Image === "bcil/gatk:GATKuser1_3" || item.Image === "bcil/gatk:GATKuser2_1" || item.Image === "bcil/gatk:GATKuser2_2" || item.Image === "bcil/gatk:GATKuser2_3") 
@@ -82,6 +101,7 @@ angular.module('dashboard', [])
                     return true;
                 }
             else { return false; }
+            */
         }
         Container.query({all: 1}, function (d) {
             var running = 0;
@@ -140,7 +160,7 @@ angular.module('dashboard', [])
             var c = new Chart(ctx).Pie(data, opts);
             var lgd = $('#chart-legend').get(0);
             legend(lgd, data);
-
+            window.test_container_port = [];
             setTimeout(function() {
                 $("#displayAll").click();
             },300);
@@ -148,21 +168,16 @@ angular.module('dashboard', [])
                 'use strict';
                 ViewSpinner.spin();
                 $('#occupied_ports').empty();
-                var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
-                var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
-                var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
+                var ChIPsequser = "bcil/chip-seq:ChIPsequser_latest"
+                var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_tophat1_latest"
+                var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_tophat2_latest"
                 for (var i=0;i<$scope.containers.length;i++){
                     if ($scope.containers[i].Status[0] === 'U') {
                         var container = $scope.containers[i];
-                        if (container.Image === ChIPsequser+'_1' || container.Image === ChIPsequser+'_2' ||container.Image === ChIPsequser+'_3' || container.Image === RNAsequser_tophat1+'_1' || container.Image === RNAsequser_tophat1+'_2' || container.Image === RNAsequser_tophat1+'_3' || container.Image === RNAsequser_tophat2+'_1' || container.Image === RNAsequser_tophat2+'_2' || container.Image === RNAsequser_tophat2+'_3' ||
-                            container.Image === "bcil/gatk:GATKuser1_1" ||
-                            container.Image === "bcil/gatk:GATKuser1_2" ||
-                            container.Image === "bcil/gatk:GATKuser1_3" ||
-                            container.Image === "bcil/gatk:GATKuser2_1" ||
-                            container.Image === "bcil/gatk:GATKuser2_2" ||
-                            container.Image === "bcil/gatk:GATKuser2_3"
-                            ) 
+                        var container_name = container.Image;
+                        if (container_name.search("_dui_") != -1) 
                         {
+                            test_container_port.push($scope)
                             var image_name = ($scope.containers[i].Names[0]).replace('/','');
                             var port_info = $scope.containers[i].Ports.Public_port;
                             if (typeof(port_info) === 'undefined') {

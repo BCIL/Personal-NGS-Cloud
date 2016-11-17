@@ -15,7 +15,7 @@
     "tag": "1.7.4",
     "commit": "7f0c27823f8862ad22860420d26eca933e60169d"
   },
-  "_source": "git://github.com/jboesch/Gritter.git",
-  "_target": "~1.7.4",
+  "_source": "https://github.com/jboesch/Gritter.git",
+  "_target": "1.7.4",
   "_originalSource": "jquery.gritter"
 }

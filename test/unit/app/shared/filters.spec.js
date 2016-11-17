@@ -1,5 +1,5 @@
 describe('filters', function () {
-    beforeEach(module('dockerui.filters'));
+    beforeEach(module('uifordocker.filters'));
 
     describe('truncate', function () {
         it('should truncate the string to 10 characters ending in "..." by default', inject(function (truncateFilter) {
@@ -73,8 +73,8 @@ describe('filters', function () {
     });
 
     describe('getstatelabel', function () {
-        it('should return an empty string when state is undefined', inject(function (getstatelabelFilter) {
-            expect(getstatelabelFilter(undefined)).toBe('');
+        it('should return default when state is undefined', inject(function (getstatelabelFilter) {
+            expect(getstatelabelFilter(undefined)).toBe('label-default');
         }));
 
         it('should return label-important when a ghost state is detected', inject(function (getstatelabelFilter) {
@@ -145,12 +145,6 @@ describe('filters', function () {
                 RepoTags: ['ubuntu:latest']
             };
             expect(repotagFilter(image)).toBe('ubuntu:latest');
-        }));
-    });
-
-    describe('getdate', function () {
-        it('should convert the Docker date to a human readable form', inject(function (getdateFilter) {
-            expect(getdateFilter(1420424998)).toBe('Sun Jan 04 2015');
         }));
     });
 
