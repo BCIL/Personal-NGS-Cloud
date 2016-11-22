@@ -29,8 +29,8 @@ module.exports = function (grunt) {
         'html2js',
         'uglify',
         'clean:tmpl',
-        'jshint',
-        'karma:unit',
+        //'jshint',
+        //'karma:unit',
         'concat:index',
         'recess:min',
         'copy'
@@ -86,7 +86,7 @@ module.exports = function (grunt) {
         },
         clean: {
             all: ['<%= distdir %>/*'],
-            app: ['<%= distdir %>/*', '!<%= distdir %>/uifordocker'],
+            app: ['<%= distdir %>/*', '!<%= distdir %>/ui-for-docker'],
             tmpl: ['<%= distdir %>/templates']
         },
         copy: {
@@ -244,38 +244,38 @@ module.exports = function (grunt) {
         },
         shell: {
             buildImage: {
-                command: 'docker build --rm -t uifordocker .'
+                command: 'docker build --rm -t ui-for-docker .'
             },
             buildBinary: {
                 command: [
                     'docker run --rm -v $(pwd)/api:/src centurylink/golang-builder',
-                    'shasum api/uifordocker > uifordocker-checksum.txt',
+                    'shasum api/ui-for-docker > ui-for-docker-checksum.txt',
                     'mkdir -p dist',
-                    'mv api/uifordocker dist/'
+                    'mv api/ui-for-docker dist/'
                 ].join(' && ')
             },
             run: {
                 command: [
-                    'docker stop uifordocker',
-                    'docker rm uifordocker',
-                    'docker run --privileged -d -p 9000:9000 -v /tmp/uifordocker:/data -v /var/run/docker.sock:/var/run/docker.sock --name uifordocker uifordocker -d /data'
+                    'docker stop ui-for-docker',
+                    'docker rm -f ui-for-docker',
+                    'docker run --privileged -d -p 9000:9000 -v /tmp/ui-for-docker:/data -v /var/run/docker.sock:/var/run/docker.sock --name ui-for-docker ui-for-docker -d /data'
                 ].join(';')
             },
             runSwarm: {
                 command: [
-                    'docker stop uifordocker',
-                    'docker rm uifordocker',
-                    'docker run --net=host -d -v /tmp/uifordocker:/data --name uifordocker uifordocker -d /data -H tcp://127.0.0.1:2374'
+                    'docker stop ui-for-docker',
+                    'docker rm -f ui-for-docker',
+                    'docker run --net=host -d -v /tmp/ui-for-docker:/data --name ui-for-docker ui-for-docker -d /data -H tcp://127.0.0.1:2374'
                 ].join(';')
             },
             cleanImages: {
-                command: 'docker rmi $(docker images -q -f dangling=true)'
+                command: 'docker rmi -f $(docker images -q -f dangling=true)'
             }
         },
         'if': {
             binaryNotExist: {
                 options: {
-                    executable: 'dist/uifordocker'
+                    executable: 'dist/ui-for-docker'
                 },
                 ifFalse: ['shell:buildBinary']
             }

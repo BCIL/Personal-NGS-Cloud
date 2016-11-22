@@ -1,7 +1,7 @@
 angular.module('startContainer', ['ui.bootstrap'])
     .controller('StartContainerController', ['$scope', '$routeParams', '$location', 'Container', 'Messages', 'containernameFilter', 'errorMsgFilter',
         function ($scope, $routeParams, $location, Container, Messages, containernameFilter, errorMsgFilter) {
-            //$scope.template = 'app/components/startContainer/startcontainer.html';
+            $scope.template = 'app/components/startContainer/startcontainer.html';
 
             Container.query({all: 1}, function (d) {
                 $scope.containerNames = d.map(function (container) {
@@ -11,6 +11,7 @@ angular.module('startContainer', ['ui.bootstrap'])
 
             $scope.config = {
                 Env: [],
+                Labels: [],
                 Volumes: [],
                 SecurityOpts: [],
                 HostConfig: {
@@ -39,7 +40,7 @@ angular.module('startContainer', ['ui.bootstrap'])
 
             function rmEmptyKeys(col) {
                 for (var key in col) {
-                    if (col[key] === null || col[key] === undefined || col[key] === '' || $.isEmptyObject(col[key]) || col[key].length === 0) {
+                    if (col[key] === null || col[key] === undefined || col[key] === '' || ($.isPlainObject(col[key]) && $.isEmptyObject(col[key])) || col[key].length === 0) {
                         delete col[key];
                     }
                 }
@@ -51,57 +52,9 @@ angular.module('startContainer', ['ui.bootstrap'])
                 });
             }
 
-            function getNames_binds(arr) {
-                var d = ":/home/data";
-                return arr.map(function (item) {
-                    var path = item.name;
-                    var chk_d = (item.name).split(':');
-                    if (chk_d.length > 1) {
-                        return item.name;
-                    }
-                    else {
-                        if (path[0] === '/'){
-                            return path + d;
-                        }
-                        else {
-                            return '/' + path + d;
-                        }
-                    }
-                });
-            }
-
-            $scope.preset = function() {
-                var el = test_image_create;
-                var el_cmd = '';
-                if (el.ContainerConfig.Cmd == null){
-                    el_cmd = '';
-                }
-                else {
-                    el_cmd = el.ContainerConfig.Cmd[0];
-                }
-                $("#input_cmd").val(el_cmd).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid ng-valid-required");
-
-                $("#input_hostname").val(el.Container).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid ng-valid-required");
-                
-                var ran_prefix = (new Date%9e7).toString(36); 
-                var ran_name = (el.ContainerConfig.Image).split(':')[1] + '_' + ran_prefix;
-                $("#input_name").val(ran_name).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid-required ng-valid ng-valid-minlength");
-                $("#name_min_err").attr("class","err ng-hide");
-                
-                $("#input_networkmode").val("bridge");
-                //$scope.rmEntry($scope.config.HostConfig.Binds, bind)
-                $scope.addEntry($scope.config.HostConfig.Binds, {name: '/usr/local/projects/data'})
-                
-                //$scope.rmEntry($scope.config.HostConfig.Links, link)
-                $scope.addEntry($scope.config.HostConfig.PortBindings, {ip: '146.95.173.35', extPort: '', intPort: '8090'})
-
-                $(".req_err").attr("class", "req_err err ng-hide")
-            }
-            
             $scope.create = function () {
                 // Copy the config before transforming fields to the remote API format
                 var config = angular.copy($scope.config);
-                window.test_config = config;
 
                 config.Image = $routeParams.id;
 
@@ -114,32 +67,30 @@ angular.module('startContainer', ['ui.bootstrap'])
                 config.Env = config.Env.map(function (envar) {
                     return envar.name + '=' + envar.value;
                 });
+                var labels = {};
+                config.Labels = config.Labels.forEach(function(label) {
+                    labels[label.key] = label.value;
+                });
+                config.Labels = labels;
 
-                //config.HostConfig.Binds = getNames(config.HostConfig.Binds);
-                config.HostConfig.Binds = getNames_binds(config.HostConfig.Binds);
-                window.test_hostconfig = config.HostConfig;
+                config.Volumes = getNames(config.Volumes);
+                config.SecurityOpts = getNames(config.SecurityOpts);
 
+                config.HostConfig.VolumesFrom = getNames(config.HostConfig.VolumesFrom);
+                config.HostConfig.Binds = getNames(config.HostConfig.Binds);
+                config.HostConfig.Links = getNames(config.HostConfig.Links);
+                config.HostConfig.Dns = getNames(config.HostConfig.Dns);
+                config.HostConfig.DnsSearch = getNames(config.HostConfig.DnsSearch);
+                config.HostConfig.CapAdd = getNames(config.HostConfig.CapAdd);
+                config.HostConfig.CapDrop = getNames(config.HostConfig.CapDrop);
+                config.HostConfig.LxcConf = config.HostConfig.LxcConf.reduce(function (prev, cur, idx) {
+                    prev[cur.name] = cur.value;
+                    return prev;
+                }, {});
+                config.HostConfig.ExtraHosts = config.HostConfig.ExtraHosts.map(function (entry) {
+                    return entry.host + ':' + entry.ip;
+                });
 
-                if (typeof(test_opt)!='undefined' && test_opt === 'advanced') {
-                    console.log("Advanced option enabled..")
-                    config.Volumes = getNames(config.Volumes);
-                    config.SecurityOpts = getNames(config.SecurityOpts);
-
-                    config.HostConfig.VolumesFrom = getNames(config.HostConfig.VolumesFrom);
-                    config.HostConfig.Links = getNames(config.HostConfig.Links);
-                    config.HostConfig.Dns = getNames(config.HostConfig.Dns);
-                    config.HostConfig.DnsSearch = getNames(config.HostConfig.DnsSearch);
-                    config.HostConfig.CapAdd = getNames(config.HostConfig.CapAdd);
-                    config.HostConfig.CapDrop = getNames(config.HostConfig.CapDrop);
-                    config.HostConfig.LxcConf = config.HostConfig.LxcConf.reduce(function (prev, cur, idx) {
-                        prev[cur.name] = cur.value;
-                        return prev;
-                    }, {});
-                    config.HostConfig.ExtraHosts = config.HostConfig.ExtraHosts.map(function (entry) {
-                        return entry.host + ':' + entry.ip;
-                    });
-                }
-                
                 var ExposedPorts = {};
                 var PortBindings = {};
                 config.HostConfig.PortBindings.forEach(function (portBinding) {
@@ -174,19 +125,10 @@ angular.module('startContainer', ['ui.bootstrap'])
                 var s = $scope;
                 Container.create(config, function (d) {
                     if (d.Id) {
-                        var reqBody = config.HostConfig || {};
-                        reqBody.id = d.Id;
-                        ctor.start(reqBody, function (cd) {
-                            if (cd.id) {
-                                Messages.send('Container Started', d.Id);
-                                $('#create-modal').modal('hide');
-                                loc.path('/containers/' + d.Id + '/');
-                            } else {
-                                failedRequestHandler(cd, Messages);
-                                ctor.remove({id: d.Id}, function () {
-                                    Messages.send('Container Removed', d.Id);
-                                });
-                            }
+                        ctor.start({id: d.Id}, {}, function (cd) {
+                            Messages.send('Container Started', d.Id);
+                            $('#create-modal').modal('hide');
+                            loc.path('/containers/' + d.Id + '/');
                         }, function (e) {
                             failedRequestHandler(e, Messages);
                         });
@@ -206,4 +148,3 @@ angular.module('startContainer', ['ui.bootstrap'])
                 array.splice(idx, 1);
             };
         }]);
-

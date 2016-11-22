@@ -1,25 +1,27 @@
 {
   "author": "Michael Crosby & Kevan Ahlquist",
   "name": "uifordocker",
-  "homepage": "https://github.com/kevana/uifordocker",
+  "homepage": "https://github.com/kevana/ui-for-docker",
   "version": "0.11.0",
   "repository": {
     "type": "git",
-    "url": "git@github.com:kevana/uifordocker.git"
+    "url": "git@github.com:kevana/ui-for-docker.git"
   },
   "bugs": {
-    "url": "https://github.com/kevana/uifordocker/issues"
+    "url": "https://github.com/kevana/ui-for-docker/issues"
   },
   "licenses": [
     {
       "type": "MIT",
-      "url": "https://raw.githubusercontent.com/kevana/uifordocker/master/LICENSE"
+      "url": "https://raw.githubusercontent.com/kevana/ui-for-docker/master/LICENSE"
     }
   ],
   "engines": {
     "node": ">= 0.8.4"
   },
-  "dependencies": {},
+  "dependencies": {
+    "lodash": "^4.16.4"
+  },
   "devDependencies": {
     "bower": "^1.5.2",
     "grunt": "~0.4.0",

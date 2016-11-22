@@ -1,4 +1,4 @@
-angular.module('uifordocker.services', ['ngResource'])
+angular.module('uifordocker.services', ['ngResource', 'ngSanitize'])
     .factory('Container', ['$resource', 'Settings', function ContainerFactory($resource, Settings) {
         'use strict';
         // Resource for interacting with the docker containers
@@ -16,9 +16,9 @@ angular.module('uifordocker.services', ['ngResource'])
             unpause: {method: 'POST', params: {id: '@id', action: 'unpause'}},
             changes: {method: 'GET', params: {action: 'changes'}, isArray: true},
             create: {method: 'POST', params: {action: 'create'}},
-            remove: {method: 'DELETE', params: {id: '@id', v: 1}},
+            remove: {method: 'DELETE', params: {id: '@id', v: 0}},
             rename: {method: 'POST', params: {id: '@id', action: 'rename'}, isArray: false},
-            stats: {method: 'GET', params: {id: '@id', stream: false, action: 'stats'}, timeout: 2000}
+            stats: {method: 'GET', params: {id: '@id', stream: false, action: 'stats'}, timeout: 5000}
         });
     }])
     .factory('ContainerCommit', ['$resource', '$http', 'Settings', function ContainerCommitFactory($resource, $http, Settings) {
@@ -26,14 +26,15 @@ angular.module('uifordocker.services', ['ngResource'])
         // http://docs.docker.com/reference/api/docker_remote_api_<%= remoteApiVersion %>/#create-a-new-image-from-a-container-s-changes
         return {
             commit: function (params, callback) {
-                window.test_commit_params = params;
                 $http({
                     method: 'POST',
                     url: Settings.url + '/commit',
                     params: {
                         'container': params.id,
-                        'repo': params.repo
-                    }
+                        'tag': params.tag || null,
+                        'repo': params.repo || null
+                    },
+                    data: params.config
                 }).success(callback).error(function (data, status, headers, config) {
                     console.log(error, data);
                 });
@@ -88,15 +89,16 @@ angular.module('uifordocker.services', ['ngResource'])
                     var str = data.replace(/\n/g, " ").replace(/\}\W*\{/g, "}, {");
                     return angular.fromJson("[" + str + "]");
                 }],
-                params: {action: 'create', fromImage: '@fromImage', repo: '@repo', tag: '@tag', registry: '@registry'}
+                params: {action: 'create', fromImage: '@fromImage', tag: '@tag'}
             },
             insert: {method: 'POST', params: {id: '@id', action: 'insert'}},
             push: {method: 'POST', params: {id: '@id', action: 'push'}},
             tag: {method: 'POST', params: {id: '@id', action: 'tag', force: 0, repo: '@repo', tag: '@tag'}},
-            remove: {method: 'DELETE', params: {id: '@id'}, isArray: true}
+            remove: {method: 'DELETE', params: {id: '@id'}, isArray: true},
+            inspect: {method: 'GET', params: {id: '@id', action: 'json'}}
         });
     }])
-    .factory('Docker', ['$resource', 'Settings', function DockerFactory($resource, Settings) {
+    .factory('Version', ['$resource', 'Settings', function VersionFactory($resource, Settings) {
         'use strict';
         // http://docs.docker.com/reference/api/docker_remote_api_<%= remoteApiVersion %>/#show-the-docker-version-information
         return $resource(Settings.url + '/version', {}, {
@@ -111,27 +113,48 @@ angular.module('uifordocker.services', ['ngResource'])
             update: {method: 'POST'}
         });
     }])
-    .factory('System', ['$resource', 'Settings', function SystemFactory($resource, Settings) {
+    .factory('Info', ['$resource', 'Settings', function InfoFactory($resource, Settings) {
         'use strict';
         // http://docs.docker.com/reference/api/docker_remote_api_<%= remoteApiVersion %>/#display-system-wide-information
         return $resource(Settings.url + '/info', {}, {
             get: {method: 'GET'}
         });
     }])
-    .factory('Settings', ['DOCKER_ENDPOINT', 'DOCKER_PORT', 'DOCKER_API_VERSION', 'UI_VERSION', function SettingsFactory(DOCKER_ENDPOINT, DOCKER_PORT, DOCKER_API_VERSION, UI_VERSION) {
+    .factory('Network', ['$resource', 'Settings', function NetworkFactory($resource, Settings) {
+        'use strict';
+        // http://docs.docker.com/reference/api/docker_remote_api_<%= remoteApiVersion %>/#2-5-networks
+        return $resource(Settings.url + '/networks/:id/:action', {id: '@id'}, {
+            query: {method: 'GET', isArray: true},
+            get: {method: 'GET'},
+            create: {method: 'POST', params: {action: 'create'}},
+            remove: {method: 'DELETE'},
+            connect: {method: 'POST', params: {action: 'connect'}},
+            disconnect: {method: 'POST', params: {action: 'disconnect'}}
+        });
+    }])
+    .factory('Volume', ['$resource', 'Settings', function VolumeFactory($resource, Settings) {
+        'use strict';
+        // http://docs.docker.com/reference/api/docker_remote_api_<%= remoteApiVersion %>/#2-5-networks
+        return $resource(Settings.url + '/volumes/:name/:action', {name: '@name'}, {
+            query: {method: 'GET'},
+            get: {method: 'GET'},
+            create: {method: 'POST', params: {action: 'create'}},
+            remove: {method: 'DELETE'}
+        });
+    }])
+    .factory('Settings', ['DOCKER_ENDPOINT', 'DOCKER_PORT', 'UI_VERSION', function SettingsFactory(DOCKER_ENDPOINT, DOCKER_PORT, UI_VERSION) {
         'use strict';
         var url = DOCKER_ENDPOINT;
         if (DOCKER_PORT) {
             url = url + DOCKER_PORT + '\\' + DOCKER_PORT;
         }
+        var firstLoad = (localStorage.getItem('firstLoad') || 'true') === 'true';
         return {
-            displayAll: true,
+            displayAll: false,
             endpoint: DOCKER_ENDPOINT,
-            version: DOCKER_API_VERSION,
-            rawUrl: DOCKER_ENDPOINT + DOCKER_PORT + '/' + DOCKER_API_VERSION,
             uiVersion: UI_VERSION,
             url: url,
-            firstLoad: true
+            firstLoad: firstLoad
         };
     }])
     .factory('ViewSpinner', function ViewSpinnerFactory() {
@@ -148,13 +171,13 @@ angular.module('uifordocker.services', ['ngResource'])
             }
         };
     })
-    .factory('Messages', ['$rootScope', function MessagesFactory($rootScope) {
+    .factory('Messages', ['$rootScope', '$sanitize', function MessagesFactory($rootScope, $sanitize) {
         'use strict';
         return {
             send: function (title, text) {
                 $.gritter.add({
-                    title: title,
-                    text: text,
+                    title: $sanitize(title),
+                    text: $sanitize(text),
                     time: 2000,
                     before_open: function () {
                         if ($('.gritter-item-wrapper').length === 3) {
@@ -165,8 +188,8 @@ angular.module('uifordocker.services', ['ngResource'])
             },
             error: function (title, text) {
                 $.gritter.add({
-                    title: title,
-                    text: text,
+                    title: $sanitize(title),
+                    text: $sanitize(text),
                     time: 10000,
                     before_open: function () {
                         if ($('.gritter-item-wrapper').length === 4) {
@@ -174,23 +197,6 @@ angular.module('uifordocker.services', ['ngResource'])
                         }
                     }
                 });
-            }
-        };
-    }])
-    .factory('Dockerfile', ['Settings', function DockerfileFactory(Settings) {
-        'use strict';
-        // http://docs.docker.com/reference/api/docker_remote_api_<%= remoteApiVersion %>/#build-image-from-a-dockerfile
-        var url = Settings.rawUrl + '/build';
-        return {
-            build: function (file, callback) {
-                var data = new FormData();
-                var dockerfile = new Blob([file], {type: 'text/text'});
-                data.append('Dockerfile', dockerfile);
-
-                var request = new XMLHttpRequest();
-                request.onload = callback;
-                request.open('POST', url);
-                request.send(data);
             }
         };
     }])
@@ -223,9 +229,10 @@ angular.module('uifordocker.services', ['ngResource'])
                     labels.push(k);
                     data.push(map[k]);
                     if (map[k] > max) {
-                      max = map[k];
+                        max = map[k];
                     }
                 }
+                var steps = Math.min(max, 10);
                 var dataset = {
                     fillColor: "rgba(151,187,205,0.5)",
                     strokeColor: "rgba(151,187,205,1)",
@@ -238,12 +245,12 @@ angular.module('uifordocker.services', ['ngResource'])
                         datasets: [dataset]
                     },
                     {
-                        scaleStepWidth: 1,
+                        scaleStepWidth: Math.ceil(max / steps),
                         pointDotRadius: 1,
+                        scaleIntegersOnly: true,
                         scaleOverride: true,
-                        scaleSteps: max
+                        scaleSteps: steps
                     });
             }
         };
     }]);
-

@@ -22,8 +22,8 @@ describe('ContainerController', function () {
         $httpBackend.expectGET('dockerapi/containers/json').respond({
             Created: 1421817232,
             id: 'b17882378cee8ec0136f482681b764cca430befd52a9bfd1bde031f49b8bba9f',
-            Image: 'uifordocker:latest',
-            Name: '/uifordocker',
+            Image: 'ui-for-docker:latest',
+            Name: '/ui-for-docker',
             Config: {},
             HostConfig: {
                 Binds: []
@@ -37,8 +37,8 @@ describe('ContainerController', function () {
         $scope.container = {
             'Created': 1421817232,
             'id': 'b17882378cee8ec0136f482681b764cca430befd52a9bfd1bde031f49b8bba9f',
-            'Image': 'uifordocker:latest',
-            'Name': '/uifordocker'
+            'Image': 'ui-for-docker:latest',
+            'Name': '/ui-for-docker'
         };
         $scope.container.newContainerName = "newName";
 

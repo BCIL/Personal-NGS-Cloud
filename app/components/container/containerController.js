@@ -76,7 +76,7 @@
 
             var display_galaxy_init = function () {
                 console.log("galaxy init msg");
-                $("#galaxy_server_info").append("<li id='galaxy_init_msg_wrapper'><span id='galaxy_init_msg'>Initializing the Galaxy server..<br />&nbsp&nbsp  Please stand by..</span></li>");
+                $("#galaxy_server_info").append("<li id='galaxy_init_msg_wrapper'><span id='galaxy_init_msg' style='text-align:center'>Initializing the Galaxy server..<br />Please stand by..</span></li>");
                 
                 function blinker() {
                     $("#galaxy_init_msg").fadeOut(700);
@@ -310,7 +310,7 @@
                         Messages.send("Pipeline renamed", $routeParams.id);
                     } else {
                         $scope.container.newContainerName = $scope.container.Name;
-                        Messages.error("Failure!", "Failed to update username.\nPlease check if the username is already taken.");
+                        Messages.error("Failure", "Pipeline failed to rename.");
                     }
                 });
                 $scope.container.edit = false;
@@ -337,3 +337,4 @@
                 }
             },500)
         }]);
+

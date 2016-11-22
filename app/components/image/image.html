@@ -6,19 +6,15 @@
 
 <div class="detail">
 
-    <h4>Tag: {{ image.ContainerConfig.Image }}</h4>
-    <h5>Pipeline ID: {{ id }}</h5>
-    <hr />
+    <h4>Image: {{ id }}</h4>
 
     <div class="btn-group detail">
-        <h5>Start new pipeline:</h5>
-        <button class="btn btn-success" data-toggle="modal" ng-click="open('simple')">Simple</button>
-        <button class="btn btn-warning" data-toggle="modal" ng-click="open('advanced')">Advanced</button>
+        <button class="btn btn-success" data-toggle="modal" data-target="#create-modal">Start Container</button>
     </div>
 
     <div>
-        <h4>The pipeline created:</h4>
-        <canvas id="containers-started-chart">
+        <h4>Containers created:</h4>
+        <canvas id="containers-started-chart" width="750">
             <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a
                     href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
         </canvas>
@@ -36,8 +32,9 @@
                 </ul>
             </td>
         </tr>
+        <tr>
             <td>Created:</td>
-            <td>{{ image.Created | date: 'medium'}}{{ image|getimage }}</td>
+            <td>{{ image.Created | date: 'yyyy-MM-dd HH:mm:ss'}}</td>
         </tr>
         <tr>
             <td>Parent:</td>
@@ -76,7 +73,6 @@
         </tbody>
     </table>
 
-<!--
     <div class="row-fluid">
         <div class="span1">
             History:
@@ -89,18 +85,18 @@
     <div class="well well-large">
         <ul>
             <li ng-repeat="change in history">
-                <strong>{{ change.Id }}</strong>: Created: {{ change.Created|getdate }} Created by: {{ change.CreatedBy
+                <strong>{{ change.Id }}</strong>: Created: {{ change.Created | date: 'yyyy-MM-dd' }} Created by: {{ change.CreatedBy
                 }}
             </li>
         </ul>
     </div>
--->
 
     <hr/>
+
     <div class="row-fluid">
         <form class="form-inline" role="form">
             <fieldset>
-                <legend>Add a tag to the pipeline</legend>
+                <legend>Tag image</legend>
                 <div class="form-group">
                     <label>Tag:</label>
                     <input type="text" placeholder="repo" ng-model="tagInfo.repo" class="form-control">
@@ -117,9 +113,8 @@
     </div>
 
     <hr/>
+
     <div class="btn-remove">
         <button class="btn btn-large btn-block btn-primary btn-danger" ng-click="removeImage(id)">Remove Image</button>
     </div>
-
 </div>
-

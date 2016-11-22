@@ -1,4 +1,4 @@
-<div id="create-modal">
+<div id="create-modal" class="modal fade">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -6,7 +6,7 @@
                 <h3>Create And Start Container From Image</h3>
             </div>
             <div class="modal-body">
-                <form name="container_info" role="form">
+                <form role="form">
                     <accordion close-others="true">
                         <accordion-group heading="Container options" is-open="menuStatus.containerOpen">
                             <fieldset>
@@ -14,40 +14,34 @@
                                     <div class="col-xs-6">
                                         <div class="form-group">
                                             <label>Cmd:</label>
-                                            <input type="text" id="input_cmd" name="cmd" ng-model="config.Cmd" class="form-control" required/>
-                                            <span ng-show="container_info.cmd.$error.required" class="req_err err">
-                                                Required</span>
+                                            <input type="text" placeholder='["/bin/echo", "Hello world"]'
+                                                   ng-model="config.Cmd" class="form-control"/>
                                             <small>Input commands as a raw string or JSON array</small>
                                         </div>
                                         <div class="form-group">
                                             <label>Entrypoint:</label>
-                                            <input type="text" id="input_entrypoint" ng-model="config.Entrypoint" class="form-control"/>
+                                            <input type="text" ng-model="config.Entrypoint" class="form-control"
+                                                   placeholder="./entrypoint.sh"/>
                                         </div>
                                         <div class="form-group">
                                             <label>Name:</label>
-                                            <input type="text" id="input_name" name="name" ng-model="config.name" class="form-control" required ng-minlength="5"/>
-                                            <span ng-show="container_info.name.$error.required" class="req_err err">
-                                                Required</span>
-                                            <span ng-show="container_info.name.$error.minlength" id="name_min_err" class="err">
-                                                Minimum 5 characters</span>
+                                            <input type="text" ng-model="config.name" class="form-control"/>
                                         </div>
                                         <div class="form-group">
                                             <label>Hostname:</label>
-                                            <input type="text" id="input_hostname" name="hostname" ng-model="config.Hostname" class="form-control" required/>
-                                            <span ng-show="container_info.hostname.$error.required" class="req_err err">
-                                                Required</span>
+                                            <input type="text" ng-model="config.Hostname" class="form-control"/>
                                         </div>
                                         <div class="form-group">
                                             <label>Domainname:</label>
-                                            <input type="text" id="input_domainname" ng-model="config.Domainname" class="form-control"/>
+                                            <input type="text" ng-model="config.Domainname" class="form-control"/>
                                         </div>
                                         <div class="form-group">
                                             <label>User:</label>
-                                            <input type="text" id="input_user" ng-model="config.User" class="form-control"/>
+                                            <input type="text" ng-model="config.User" class="form-control"/>
                                         </div>
                                         <div class="form-group">
                                             <label>Memory:</label>
-                                            <input type="number" id="input_memory" ng-model="config.Memory" class="form-control"/>
+                                            <input type="number" ng-model="config.Memory" class="form-control"/>
                                         </div>
                                         <div class="form-group">
                                             <label>Volumes:</label>
@@ -154,6 +148,32 @@
                                         variable
                                     </button>
                                 </div>
+                                <div class="form-group">
+                                    <label>Labels:</label>
+
+                                    <div ng-repeat="label in config.Labels">
+                                        <div class="form-group form-inline">
+                                            <div class="form-group">
+                                                <label class="sr-only">Key:</label>
+                                                <input type="text" ng-model="label.key" class="form-control"
+                                                       placeholder="key"/>
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="sr-only">Value:</label>
+                                                <input type="text" ng-model="label.value" class="form-control"
+                                                       placeholder="value"/>
+                                            </div>
+                                            <div class="form-group">
+                                                <button class="btn btn-danger btn-xs form-control"
+                                                        ng-click="rmEntry(config.Labels, label)">Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-success btn-sm"
+                                            ng-click="addEntry(config.Labels, {key: '', value: ''})">Add Label
+                                    </button>
+                                </div>
                             </fieldset>
                         </accordion-group>
                         <accordion-group heading="HostConfig options" is-open="menuStatus.hostConfigOpen">
@@ -161,17 +181,18 @@
                                 <div class="row">
                                     <div class="col-xs-6">
                                         <div class="form-group">
-                                            <label>MountDatabase:</label>
-                                            <div ng-repeat="bind in config.HostConfig.Binds">   
+                                            <label>Binds:</label>
+
+                                            <div ng-repeat="bind in config.HostConfig.Binds">
                                                 <div class="form-group form-inline">
-                                                    <input type="text" id="input_bind" name="bind" ng-model="bind.name" class="form-control" placeholder="/host:/container" required/>
-                                                    <span ng-show="container_info.bind.$error.required" class="req_err err">Required</span>
+                                                    <input type="text" ng-model="bind.name" class="form-control"
+                                                           placeholder="/host:/container"/>
                                                     <button type="button" class="btn btn-danger btn-sm"
                                                             ng-click="rmEntry(config.HostConfig.Binds, bind)">Remove
                                                     </button>
                                                 </div>
                                             </div>
-                                            <button type="button" id="addBind_btn" class="btn btn-success btn-sm"
+                                            <button type="button" class="btn btn-success btn-sm"
                                                     ng-click="addEntry(config.HostConfig.Binds, {name: ''})">Add Bind
                                             </button>
                                         </div>
@@ -261,7 +282,7 @@
                                     <div class="col-xs-6">
                                         <div class="form-group">
                                             <label>NetworkMode:</label>
-                                            <input type="text" id="input_networkmode" ng-model="config.HostConfig.NetworkMode"
+                                            <input type="text" ng-model="config.HostConfig.NetworkMode"
                                                    class="form-control" placeholder="bridge"/>
                                         </div>
                                         <div class="form-group">
@@ -281,7 +302,7 @@
                                                 <div class="form-group form-inline">
                                                     <select ng-model="volume.name"
                                                             ng-options="name for name in containerNames track by name"
-                                                            class="form-control"/>
+                                                            class="form-control">
                                                     </select>
                                                     <button class="btn btn-danger btn-xs form-control"
                                                             ng-click="rmEntry(config.HostConfig.VolumesFrom, volume)">
@@ -391,33 +412,16 @@
                                     <label>PortBindings:</label>
 
                                     <div ng-repeat="portBinding in config.HostConfig.PortBindings">
-                                        <div class="form-group form-inline inline-portbinding">
-                                            <div class="row">
-                                                <div class="col-xs-4" style="padding-right:0px;">
-                                                <label class="portbinding-label">Host IP:</label>
-                                                <input type="text" id="input_hostIP" name="hostIP" ng-model="portBinding.ip" class="form-control" required/>
-                                            <br />
-                                            
-                                                <span ng-show="container_info.hostIP.$error.required" class="req_err err">
-                                                    Required</span>
-                                                </div>
-                                                <div class="col-xs-4">
-                                                <label class="portbinding-label">Host Port:</label>
-                                                <input type="text" id="input_hostport" name="hostPort" ng-model="portBinding.extPort" class="form-control" required/>
-                                            <br />
-                                            
-                                                <span ng-show="container_info.hostPort.$error.required" id="req_err_hostport" class="err">
-                                                    Required</span>
-                                                </div>
-                                                <div class="col-xs-4">
-                                                <label class="portbinding-label">Container port:</label>
-                                                <input type="text" id="input_containerport" name="containerPort" ng-model="portBinding.intPort" class="form-control" required/>
-                                            
-                                                <span ng-show="container_info.containerPort.$error.required" class="req_err err">
-                                                    Required</span>
-                                                </div>
-                                            </div>
-                                            <br />
+                                        <div class="form-group form-inline inline-four">
+                                            <label class="sr-only">Host IP:</label>
+                                            <input type="text" ng-model="portBinding.ip" class="form-control"
+                                                   placeholder="Host IP Address"/>
+                                            <label class="sr-only">Host Port:</label>
+                                            <input type="text" ng-model="portBinding.extPort" class="form-control"
+                                                   placeholder="Host Port"/>
+                                            <label class="sr-only">Container port:</label>
+                                            <input type="text" ng-model="portBinding.intPort" class="form-control"
+                                                   placeholder="Container Port"/>
                                             <select ng-model="portBinding.protocol">
                                                 <option value="">tcp</option>
                                                 <option value="udp">udp</option>
@@ -428,7 +432,7 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <button type="button" id="addPort_btn" class="btn btn-success btn-sm"
+                                    <button type="button" class="btn btn-success btn-sm"
                                             ng-click="addEntry(config.HostConfig.PortBindings, {ip: '', extPort: '', intPort: ''})">
                                         Add Port Binding
                                     </button>
@@ -438,11 +442,9 @@
                     </accordion>
                 </form>
             </div>
-            <div class="modal-footer">            
-                <a href="" class="btn btn-primary btn-lg" ng-click="preset()">Preset</a>
-                <a href="" class="btn btn-success btn-lg" ng-click="create()">Create</a>
+            <div class="modal-footer">
+                <a href="" class="btn btn-primary btn-lg" ng-click="create()">Create</a>
             </div>
         </div>
     </div>
 </div>
-

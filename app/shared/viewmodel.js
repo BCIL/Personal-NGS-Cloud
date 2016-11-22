@@ -17,11 +17,4 @@ function ContainerViewModel(data) {
     this.Status = data.Status;
     this.Checked = false;
     this.Names = data.Names;
-    this.Ports = {};
-    if (data.Ports.length > 0) {
-        this.Ports.Private_port = data.Ports[0].PrivatePort;
-        this.Ports.Public_port = data.Ports[0].PublicPort;
-        this.Ports.IP = data.Ports[0].IP;
-    }
 }
-

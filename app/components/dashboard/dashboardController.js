@@ -1,9 +1,9 @@
 angular.module('dashboard', [])
-    .controller('DashboardController', ['$scope','$window', 'Container', 'Image', 'Settings', 'LineChart','ViewSpinner', function ($scope, $window, Container, Image, Settings, LineChart, ViewSpinner) {
+    .controller('DashboardController', ['$scope', 'Container', 'Image', 'Settings', 'LineChart', function ($scope, Container, Image, Settings, LineChart) {
         $scope.predicate = '-Created';
         $scope.containers = [];
+
         var getStarted = function (data) {
-            update({all: Settings.displayAll ? 1 : 0});
             $scope.totalContainers = data.length;
             LineChart.build('#containers-started-chart', data, function (c) {
                 return new Date(c.Created * 1000).toLocaleDateString();
@@ -34,76 +34,40 @@ angular.module('dashboard', [])
             $scope.sortKey = key;
             $scope.reverse = !$scope.reverse;
         }
-
-        $scope.start = function () {
-                window.test_cont = Container;
-                //console.log("start function works")
-            /*
-                Container.start({
-                    id: $scope.container.Id,
-                    HostConfig: $scope.container.HostConfig
-                }, function (d) {
-                    update();
-                    Messages.send("Container started", $routeParams.id);
-                }, function (e) {
-                    update();
-                    Messages.error("Failure", "Container failed to start." + e.data);
-                });
-            */
-        };
-        //$scope.displayAll = true;
+        
         $scope.myFilter = function (container) {
-            /*var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
-            var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
-            var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
-            */
             var image_name = container.Image;
-            //var split_list = image_name.split('_')
+            
             if ( image_name.search("_dui_") != -1 ) {
                 return true
             }
             else {
                 return false
             }
-            /*return container.Image === ChIPsequser+'_1' || container.Image === ChIPsequser+'_2' ||container.Image === ChIPsequser+'_3' || container.Image === RNAsequser_tophat1+'_1' || container.Image === RNAsequser_tophat1+'_2' || container.Image === RNAsequser_tophat1+'_3' || container.Image === RNAsequser_tophat2+'_1' || container.Image === RNAsequser_tophat2+'_2' || container.Image === RNAsequser_tophat2+'_3';
-            */
-            /* || container.Image === "bcil/gatk:GATKuser1_1" || container.Image === "bcil/gatk:GATKuser1_2" || container.Image === "bcil/gatk:GATKuser1_3" || container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_3";
-            */
-        }
+         }
 
-        var opts = {
-            animation: false,
-            percentageInnerCutout : 0
-        };
+        var opts = {animation: false};
         if (Settings.firstLoad) {
             opts.animation = true;
             Settings.firstLoad = false;
+            localStorage.setItem('firstLoad', false);
             $('#masthead').show();
 
             setTimeout(function () {
                 $('#masthead').slideUp('slow');
             }, 5000);
         }
+
         function valid_pipeline(item){
             var image_name = item.Image;
-            //var split_list = image_name.split('_')
             if ( image_name.search("_dui_") != -1 ) {
                 return true;
             }
             else { return false; }
-
-            /*var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
-            var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
-            var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
-            if (item.Image === ChIPsequser+'_1' || item.Image === ChIPsequser+'_2' ||item.Image === ChIPsequser+'_3' || item.Image === RNAsequser_tophat1+'_1' || item.Image === RNAsequser_tophat1+'_2' || item.Image === RNAsequser_tophat1+'_3' || item.Image === RNAsequser_tophat2+'_1' || item.Image === RNAsequser_tophat2+'_2' || item.Image === RNAsequser_tophat2+'_3' || item.Image === "bcil/gatk:GATKuser1_1" || item.Image === "bcil/gatk:GATKuser1_2" || item.Image === "bcil/gatk:GATKuser1_3" || item.Image === "bcil/gatk:GATKuser2_1" || item.Image === "bcil/gatk:GATKuser2_2" || item.Image === "bcil/gatk:GATKuser2_3") 
-                {
-                    test_items.push(item);
-                    return true;
-                }
-            else { return false; }
-            */
         }
+
         Container.query({all: 1}, function (d) {
+            var created = 0;
             var running = 0;
             var ghost = 0;
             var stopped = 0;
@@ -127,37 +91,56 @@ angular.module('dashboard', [])
                     }
                 }
             }
+/*
+        Container.query({all: 1}, function (d) {
+            var running = 0;
+            var ghost = 0;
+            var stopped = 0;
+            var created = 0;
 
-            //getStarted(d);      // generates linecharts
+            for (var i = 0; i < d.length; i++) {
+                var item = d[i];
+
+                if (item.Status === "Ghost") {
+                    ghost += 1;
+                } else if (item.Status === "Created") {
+                    created += 1;
+                } else if (item.Status.indexOf('Exit') !== -1) {
+                    stopped += 1;
+                } else {
+                    running += 1;
+                    $scope.containers.push(new ContainerViewModel(item));
+                }
+            }
+*/
+            //getStarted(d);
             window.test_scope_cont = $scope.containers;
+
+            var c = new Chart($('#containers-chart').get(0).getContext("2d"));
             var data = [
                 {
+                    value: created,
+                    color: '#000000',
+                    title: 'Created'
+                },
+                {
                     value: running,
-                    color: '#40ff00',
-                    highlight: '#8cff66',
-                    label: 'Running',
+                    color: '#5bb75b',
                     title: 'Running'
                 }, // running
                 {
                     value: stopped,
-                    color: '#ff3300',
-                    highlight: '#ff5c33',
-                    label: 'Stopped',
+                    color: '#C7604C',
                     title: 'Stopped'
-                } // stopped
-                /*
+                }, // stopped
                 {
                     value: ghost,
-                    color: '#a6a6a6',
-                    highlight: '#bfbfbf',
-                    label: 'Ghost',
+                    color: '#E2EAE9',
                     title: 'Ghost'
                 } // ghost
-                */
             ];
 
-            var ctx = $('#containers-chart').get(0).getContext("2d")
-            var c = new Chart(ctx).Pie(data, opts);
+            c.Doughnut(data, opts);
             var lgd = $('#chart-legend').get(0);
             legend(lgd, data);
             window.test_container_port = [];
@@ -166,11 +149,7 @@ angular.module('dashboard', [])
             },300);
             setTimeout(function() {
                 'use strict';
-                ViewSpinner.spin();
                 $('#occupied_ports').empty();
-                var ChIPsequser = "bcil/chip-seq:ChIPsequser_latest"
-                var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_tophat1_latest"
-                var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_tophat2_latest"
                 for (var i=0;i<$scope.containers.length;i++){
                     if ($scope.containers[i].Status[0] === 'U') {
                         var container = $scope.containers[i];
@@ -187,7 +166,6 @@ angular.module('dashboard', [])
                         }
                     }
                 }
-                ViewSpinner.stop();
             },600);
 
             var refresh_interval = 3000//(1000 * 60) * 5;

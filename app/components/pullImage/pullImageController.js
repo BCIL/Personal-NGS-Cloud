@@ -1,12 +1,11 @@
 angular.module('pullImage', [])
-    .controller('PullImageController', ['$scope', '$log', 'Dockerfile', 'Messages', 'Image', 'ViewSpinner',
-        function ($scope, $log, Dockerfile, Messages, Image, ViewSpinner) {
+    .controller('PullImageController', ['$scope', '$log', 'Messages', 'Image', 'ViewSpinner',
+        function ($scope, $log, Messages, Image, ViewSpinner) {
             $scope.template = 'app/components/pullImage/pullImage.html';
 
             $scope.init = function () {
                 $scope.config = {
                     registry: '',
-                    repo: '',
                     fromImage: '',
                     tag: 'latest'
                 };
@@ -20,11 +19,11 @@ angular.module('pullImage', [])
 
             $scope.pull = function () {
                 $('#error-message').hide();
-                var config = angular.copy($scope.config);
-                var imageName = (config.registry ? config.registry + '/' : '' ) +
-                    (config.repo ? config.repo + '/' : '') +
-                    (config.fromImage) +
-                    (config.tag ? ':' + config.tag : '');
+                var imageName = ($scope.config.registry ? $scope.config.registry + '/' : '' ) +
+                  ($scope.config.fromImage);
+                var config = {};
+                config.fromImage = imageName;
+                config.tag = $scope.config.tag;
 
                 ViewSpinner.spin();
                 $('#pull-modal').modal('hide');

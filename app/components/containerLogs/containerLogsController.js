@@ -3,7 +3,7 @@ angular.module('containerLogs', [])
         function ($scope, $routeParams, $location, $anchorScroll, ContainerLogs, Container, ViewSpinner) {
             $scope.stdout = '';
             $scope.stderr = '';
-            $scope.showTimestamps = true;
+            $scope.showTimestamps = false;
             $scope.tailLines = 2000;
 
             ViewSpinner.spin();
@@ -74,4 +74,3 @@ angular.module('containerLogs', [])
                 getLogs();
             };
         }]);
-

@@ -1,31 +1,12 @@
 angular.module('image', [])
-    .controller('ImageController', ['$scope', '$q', '$routeParams', '$location', 'Image', 'Container', 'Messages', 'LineChart', '$modal',
-        function ($scope, $q, $routeParams, $location, Image, Container, Messages, LineChart, $modal) {
+    .controller('ImageController', ['$scope', '$q', '$routeParams', '$location', 'Image', 'Container', 'Messages', 'LineChart',
+        function ($scope, $q, $routeParams, $location, Image, Container, Messages, LineChart) {
             $scope.history = [];
             $scope.tagInfo = {repo: '', version: '', force: false};
             $scope.id = '';
-            $scope.RepoTags = [];
-
-            $scope.open = function(opt) {
-                if (opt === 'simple'){
-                    window.test_opt = opt;
-                    $modal.open({
-                        templateUrl: 'app/components/startContainer/startcontainer2.html',
-                        controller: 'StartContainerController'
-                    });
-                }
-                else {
-                    window.test_opt = opt;
-                    $modal.open({
-                        templateUrl: 'app/components/startContainer/startcontainer.html',
-                        controller: 'StartContainerController'
-                    });
-                }
-            }
+            $scope.repoTags = [];
 
             $scope.removeImage = function (id) {
-                console.log("Remove image ID: " + id)
-                
                 Image.remove({id: id}, function (d) {
                     d.forEach(function(msg){
                         var key = Object.keys(msg)[0];
@@ -46,7 +27,6 @@ angular.module('image', [])
             $scope.getHistory = function () {
                 Image.history({id: $routeParams.id}, function (d) {
                     $scope.history = d;
-                    window.test_scope_history = d;
                 });
             };
 
@@ -123,6 +103,4 @@ angular.module('image', [])
             });
 
             $scope.getHistory();
-            $("#containers-started-chart").css("width", "100%").css("height","120px");
         }]);
-

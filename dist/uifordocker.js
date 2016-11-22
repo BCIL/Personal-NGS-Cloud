@@ -1,11 +1,39 @@
-/*! uifordocker - v0.11.0 - 2016-11-17
- * https://github.com/kevana/uifordocker
+/*! uifordocker - v0.11.0 - 2016-11-22
+ * https://github.com/kevana/ui-for-docker
  * Copyright (c) 2016 Michael Crosby & Kevan Ahlquist;
  * Licensed MIT
  */
-angular.module('uifordocker', ['uifordocker.templates', 'ngRoute', 'uifordocker.services', 'uifordocker.filters', 'masthead', 'footer', 'dashboard', 'container', 'containers', 'containersNetwork', 'images', 'image', 'pullImage', 'startContainer', 'sidebar', 'info', 'builder', 'containerLogs', 'containerTop', 'events', 'stats'])
-    .config(['$routeProvider', function ($routeProvider) {
+angular.module('uifordocker', [
+    'uifordocker.templates',
+    'ngRoute',
+    'uifordocker.services',
+    'uifordocker.filters',
+    'masthead',
+    'footer',
+    'dashboard',
+    'container',
+    'containers',
+    'containersNetwork',
+    'images',
+    'image',
+    'pullImage',
+    'startContainer',
+    'sidebar',
+    'info',
+    'builder',
+    'containerLogs',
+    'containerTop',
+    'events',
+    'stats',
+    'network',
+    'networks',
+    'volumes'])
+    .config(['$routeProvider', '$httpProvider', function ($routeProvider, $httpProvider) {
         'use strict';
+
+        $httpProvider.defaults.xsrfCookieName = 'csrfToken';
+        $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
+
         $routeProvider.when('/', {
             templateUrl: 'app/components/dashboard/dashboard.html',
             controller: 'DashboardController'
@@ -48,17 +76,37 @@ angular.module('uifordocker', ['uifordocker.templates', 'ngRoute', 'uifordocker.
             controller: 'EventsController'
         });
         $routeProvider.otherwise({redirectTo: '/'});
+
+        // The Docker API likes to return plaintext errors, this catches them and disp
+        $httpProvider.interceptors.push(function() {
+            return {
+                'response': function(response) {
+                    if (typeof(response.data) === 'string' &&
+                            (response.data.startsWith('Conflict.') || response.data.startsWith('conflict:'))) {
+                        $.gritter.add({
+                            title: 'Error',
+                            text: $('<div>').text(response.data).html(),
+                            time: 10000
+                        });
+                    }
+                    var csrfToken = response.headers('X-Csrf-Token');
+                    if (csrfToken) {
+                        document.cookie = 'csrfToken=' + csrfToken;
+                    }
+                    return response;
+                }
+            };
+        });
     }])
     // This is your docker url that the api will use to make requests
     // You need to set this to the api endpoint without the port i.e. http://192.168.1.9
     .constant('DOCKER_ENDPOINT', 'dockerapi')
     .constant('DOCKER_PORT', '') // Docker port, leave as an empty string if no port is requred.  If you have a port, prefix it with a ':' i.e. :4243
-    .constant('UI_VERSION', 'v0.8.0')
-    .constant('DOCKER_API_VERSION', 'v1.20');
+    .constant('UI_VERSION', 'v0.11.0');
 
 angular.module('builder', [])
-    .controller('BuilderController', ['$scope', 'Dockerfile', 'Messages',
-        function ($scope, Dockerfile, Messages) {
+    .controller('BuilderController', ['$scope',
+        function ($scope) {
             $scope.template = 'app/components/builder/builder.html';
         }]);
 
@@ -140,7 +188,7 @@ angular.module('builder', [])
 
             var display_galaxy_init = function () {
                 console.log("galaxy init msg");
-                $("#galaxy_server_info").append("<li id='galaxy_init_msg_wrapper'><span id='galaxy_init_msg'>Initializing the Galaxy server..<br />&nbsp&nbsp  Please stand by..</span></li>");
+                $("#galaxy_server_info").append("<li id='galaxy_init_msg_wrapper'><span id='galaxy_init_msg' style='text-align:center'>Initializing the Galaxy server..<br />Please stand by..</span></li>");
                 
                 function blinker() {
                     $("#galaxy_init_msg").fadeOut(700);
@@ -374,7 +422,7 @@ angular.module('builder', [])
                         Messages.send("Pipeline renamed", $routeParams.id);
                     } else {
                         $scope.container.newContainerName = $scope.container.Name;
-                        Messages.error("Failure!", "Failed to update username.\nPlease check if the username is already taken.");
+                        Messages.error("Failure", "Pipeline failed to rename.");
                     }
                 });
                 $scope.container.edit = false;
@@ -402,12 +450,13 @@ angular.module('builder', [])
             },500)
         }]);
 
+
 angular.module('containerLogs', [])
     .controller('ContainerLogsController', ['$scope', '$routeParams', '$location', '$anchorScroll', 'ContainerLogs', 'Container', 'ViewSpinner',
         function ($scope, $routeParams, $location, $anchorScroll, ContainerLogs, Container, ViewSpinner) {
             $scope.stdout = '';
             $scope.stderr = '';
-            $scope.showTimestamps = true;
+            $scope.showTimestamps = false;
             $scope.tailLines = 2000;
 
             ViewSpinner.spin();
@@ -479,9 +528,8 @@ angular.module('containerLogs', [])
             };
         }]);
 
-
 angular.module('containerTop', [])
-    .controller('ContainerTopController', ['$scope', '$routeParams', 'ContainerTop', 'ViewSpinner', function ($scope, $routeParams, ContainerTop, ViewSpinner) {
+    .controller('ContainerTopController', ['$scope', '$routeParams', 'ContainerTop', 'Container', 'ViewSpinner', function ($scope, $routeParams, ContainerTop, Container, ViewSpinner) {
         $scope.ps_args = '';
 
         /**
@@ -497,14 +545,26 @@ angular.module('containerTop', [])
             });
         };
 
+        Container.get({id: $routeParams.id}, function (d) {
+            $scope.containerName = d.Name.substring(1);
+        }, function (e) {
+            Messages.error("Failure", e.data);
+        });
+
         $scope.getTop();
     }]);
 angular.module('containers', [])
     .controller('ContainersController', ['$scope', 'Container', 'Settings', 'Messages', 'ViewSpinner',
         function ($scope, Container, Settings, Messages, ViewSpinner) {
-            $scope.predicate = '-Created';
+            $scope.sortType = 'Created';
+            $scope.sortReverse = true;
             $scope.toggle = false;
             $scope.displayAll = Settings.displayAll;
+
+            $scope.order = function (sortType) {
+                $scope.sortReverse = ($scope.sortType === sortType) ? !$scope.sortReverse : false;
+                $scope.sortType = sortType;
+            };
 
             var update = function (data) {
                 ViewSpinner.spin();
@@ -532,7 +592,7 @@ angular.module('containers', [])
                             Container.get({id: c.Id}, function (d) {
                                 c = d;
                                 counter = counter + 1;
-                                action({id: c.Id, HostConfig: c.HostConfig || {}}, function (d) {
+                                action({id: c.Id}, {}, function (d) {
                                     Messages.send("Container " + msg, c.Id);
                                     var index = $scope.containers.indexOf(c);
                                     complete();
@@ -571,7 +631,7 @@ angular.module('containers', [])
             };
 
             $scope.toggleSelectAll = function () {
-                angular.forEach($scope.containers, function (i) {
+                angular.forEach($scope.filteredContainers, function (i) {
                     i.Checked = $scope.toggle;
                 });
             };
@@ -885,11 +945,11 @@ angular.module('containersNetwork', ['ngVis'])
     }]);
 
 angular.module('dashboard', [])
-    .controller('DashboardController', ['$scope','$window', 'Container', 'Image', 'Settings', 'LineChart','ViewSpinner', function ($scope, $window, Container, Image, Settings, LineChart, ViewSpinner) {
+    .controller('DashboardController', ['$scope', 'Container', 'Image', 'Settings', 'LineChart', function ($scope, Container, Image, Settings, LineChart) {
         $scope.predicate = '-Created';
         $scope.containers = [];
+
         var getStarted = function (data) {
-            update({all: Settings.displayAll ? 1 : 0});
             $scope.totalContainers = data.length;
             LineChart.build('#containers-started-chart', data, function (c) {
                 return new Date(c.Created * 1000).toLocaleDateString();
@@ -920,76 +980,40 @@ angular.module('dashboard', [])
             $scope.sortKey = key;
             $scope.reverse = !$scope.reverse;
         }
-
-        $scope.start = function () {
-                window.test_cont = Container;
-                //console.log("start function works")
-            /*
-                Container.start({
-                    id: $scope.container.Id,
-                    HostConfig: $scope.container.HostConfig
-                }, function (d) {
-                    update();
-                    Messages.send("Container started", $routeParams.id);
-                }, function (e) {
-                    update();
-                    Messages.error("Failure", "Container failed to start." + e.data);
-                });
-            */
-        };
-        //$scope.displayAll = true;
+        
         $scope.myFilter = function (container) {
-            /*var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
-            var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
-            var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
-            */
             var image_name = container.Image;
-            //var split_list = image_name.split('_')
+            
             if ( image_name.search("_dui_") != -1 ) {
                 return true
             }
             else {
                 return false
             }
-            /*return container.Image === ChIPsequser+'_1' || container.Image === ChIPsequser+'_2' ||container.Image === ChIPsequser+'_3' || container.Image === RNAsequser_tophat1+'_1' || container.Image === RNAsequser_tophat1+'_2' || container.Image === RNAsequser_tophat1+'_3' || container.Image === RNAsequser_tophat2+'_1' || container.Image === RNAsequser_tophat2+'_2' || container.Image === RNAsequser_tophat2+'_3';
-            */
-            /* || container.Image === "bcil/gatk:GATKuser1_1" || container.Image === "bcil/gatk:GATKuser1_2" || container.Image === "bcil/gatk:GATKuser1_3" || container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_1"|| container.Image === "bcil/gatk:GATKuser2_3";
-            */
-        }
+         }
 
-        var opts = {
-            animation: false,
-            percentageInnerCutout : 0
-        };
+        var opts = {animation: false};
         if (Settings.firstLoad) {
             opts.animation = true;
             Settings.firstLoad = false;
+            localStorage.setItem('firstLoad', false);
             $('#masthead').show();
 
             setTimeout(function () {
                 $('#masthead').slideUp('slow');
             }, 5000);
         }
+
         function valid_pipeline(item){
             var image_name = item.Image;
-            //var split_list = image_name.split('_')
             if ( image_name.search("_dui_") != -1 ) {
                 return true;
             }
             else { return false; }
-
-            /*var ChIPsequser = "bcil/chip-seq:ChIPsequser_dockerui"
-            var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_dockerui_tophat1"
-            var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_dockerui_tophat2"
-            if (item.Image === ChIPsequser+'_1' || item.Image === ChIPsequser+'_2' ||item.Image === ChIPsequser+'_3' || item.Image === RNAsequser_tophat1+'_1' || item.Image === RNAsequser_tophat1+'_2' || item.Image === RNAsequser_tophat1+'_3' || item.Image === RNAsequser_tophat2+'_1' || item.Image === RNAsequser_tophat2+'_2' || item.Image === RNAsequser_tophat2+'_3' || item.Image === "bcil/gatk:GATKuser1_1" || item.Image === "bcil/gatk:GATKuser1_2" || item.Image === "bcil/gatk:GATKuser1_3" || item.Image === "bcil/gatk:GATKuser2_1" || item.Image === "bcil/gatk:GATKuser2_2" || item.Image === "bcil/gatk:GATKuser2_3") 
-                {
-                    test_items.push(item);
-                    return true;
-                }
-            else { return false; }
-            */
         }
+
         Container.query({all: 1}, function (d) {
+            var created = 0;
             var running = 0;
             var ghost = 0;
             var stopped = 0;
@@ -1013,37 +1037,56 @@ angular.module('dashboard', [])
                     }
                 }
             }
+/*
+        Container.query({all: 1}, function (d) {
+            var running = 0;
+            var ghost = 0;
+            var stopped = 0;
+            var created = 0;
 
-            //getStarted(d);      // generates linecharts
+            for (var i = 0; i < d.length; i++) {
+                var item = d[i];
+
+                if (item.Status === "Ghost") {
+                    ghost += 1;
+                } else if (item.Status === "Created") {
+                    created += 1;
+                } else if (item.Status.indexOf('Exit') !== -1) {
+                    stopped += 1;
+                } else {
+                    running += 1;
+                    $scope.containers.push(new ContainerViewModel(item));
+                }
+            }
+*/
+            //getStarted(d);
             window.test_scope_cont = $scope.containers;
+
+            var c = new Chart($('#containers-chart').get(0).getContext("2d"));
             var data = [
                 {
+                    value: created,
+                    color: '#000000',
+                    title: 'Created'
+                },
+                {
                     value: running,
-                    color: '#40ff00',
-                    highlight: '#8cff66',
-                    label: 'Running',
+                    color: '#5bb75b',
                     title: 'Running'
                 }, // running
                 {
                     value: stopped,
-                    color: '#ff3300',
-                    highlight: '#ff5c33',
-                    label: 'Stopped',
+                    color: '#C7604C',
                     title: 'Stopped'
-                } // stopped
-                /*
+                }, // stopped
                 {
                     value: ghost,
-                    color: '#a6a6a6',
-                    highlight: '#bfbfbf',
-                    label: 'Ghost',
+                    color: '#E2EAE9',
                     title: 'Ghost'
                 } // ghost
-                */
             ];
 
-            var ctx = $('#containers-chart').get(0).getContext("2d")
-            var c = new Chart(ctx).Pie(data, opts);
+            c.Doughnut(data, opts);
             var lgd = $('#chart-legend').get(0);
             legend(lgd, data);
             window.test_container_port = [];
@@ -1052,11 +1095,7 @@ angular.module('dashboard', [])
             },300);
             setTimeout(function() {
                 'use strict';
-                ViewSpinner.spin();
                 $('#occupied_ports').empty();
-                var ChIPsequser = "bcil/chip-seq:ChIPsequser_latest"
-                var RNAsequser_tophat1 = "bcil/rna-seq:RNAsequser_tophat1_latest"
-                var RNAsequser_tophat2 = "bcil/rna-seq:RNAsequser_tophat2_latest"
                 for (var i=0;i<$scope.containers.length;i++){
                     if ($scope.containers[i].Status[0] === 'U') {
                         var container = $scope.containers[i];
@@ -1073,7 +1112,6 @@ angular.module('dashboard', [])
                         }
                     }
                 }
-                ViewSpinner.stop();
             },600);
 
             var refresh_interval = 3000//(1000 * 60) * 5;
@@ -1135,43 +1173,24 @@ angular.module('events', ['ngOboe'])
 
     }]);
 angular.module('footer', [])
-    .controller('FooterController', ['$scope', 'Settings', 'Docker', function ($scope, Settings, Docker) {
+    .controller('FooterController', ['$scope', 'Settings', 'Version', function ($scope, Settings, Version) {
         $scope.template = 'app/components/footer/statusbar.html';
 
         $scope.uiVersion = Settings.uiVersion;
-        Docker.get({}, function (d) {
+        Version.get({}, function (d) {
             $scope.apiVersion = d.ApiVersion;
         });
     }]);
 
 angular.module('image', [])
-    .controller('ImageController', ['$scope', '$q', '$routeParams', '$location', 'Image', 'Container', 'Messages', 'LineChart', '$modal',
-        function ($scope, $q, $routeParams, $location, Image, Container, Messages, LineChart, $modal) {
+    .controller('ImageController', ['$scope', '$q', '$routeParams', '$location', 'Image', 'Container', 'Messages', 'LineChart',
+        function ($scope, $q, $routeParams, $location, Image, Container, Messages, LineChart) {
             $scope.history = [];
             $scope.tagInfo = {repo: '', version: '', force: false};
             $scope.id = '';
-            $scope.RepoTags = [];
-
-            $scope.open = function(opt) {
-                if (opt === 'simple'){
-                    window.test_opt = opt;
-                    $modal.open({
-                        templateUrl: 'app/components/startContainer/startcontainer2.html',
-                        controller: 'StartContainerController'
-                    });
-                }
-                else {
-                    window.test_opt = opt;
-                    $modal.open({
-                        templateUrl: 'app/components/startContainer/startcontainer.html',
-                        controller: 'StartContainerController'
-                    });
-                }
-            }
+            $scope.repoTags = [];
 
             $scope.removeImage = function (id) {
-                console.log("Remove image ID: " + id)
-                
                 Image.remove({id: id}, function (d) {
                     d.forEach(function(msg){
                         var key = Object.keys(msg)[0];
@@ -1192,7 +1211,6 @@ angular.module('image', [])
             $scope.getHistory = function () {
                 Image.history({id: $routeParams.id}, function (d) {
                     $scope.history = d;
-                    window.test_scope_history = d;
                 });
             };
 
@@ -1269,15 +1287,19 @@ angular.module('image', [])
             });
 
             $scope.getHistory();
-            $("#containers-started-chart").css("width", "100%").css("height","120px");
         }]);
-
 
 angular.module('images', [])
     .controller('ImagesController', ['$scope', 'Image', 'ViewSpinner', 'Messages',
         function ($scope, Image, ViewSpinner, Messages) {
+            $scope.sortType = 'Created';
+            $scope.sortReverse = true;
             $scope.toggle = false;
-            $scope.predicate = '-Created';
+
+            $scope.order = function(sortType) {
+                $scope.sortReverse = ($scope.sortType === sortType) ? !$scope.sortReverse : false;
+                $scope.sortType = sortType;
+            };
 
             $scope.showBuilder = function () {
                 $('#build-modal').modal('show');
@@ -1311,7 +1333,7 @@ angular.module('images', [])
             };
 
             $scope.toggleSelectAll = function () {
-                angular.forEach($scope.images, function (i) {
+                angular.forEach($scope.filteredImages, function (i) {
                     i.Checked = $scope.toggle;
                 });
             };
@@ -1329,17 +1351,16 @@ angular.module('images', [])
         }]);
 
 angular.module('info', [])
-    .controller('InfoController', ['$scope', 'System', 'Docker', 'Settings', 'Messages',
-        function ($scope, System, Docker, Settings, Messages) {
+    .controller('InfoController', ['$scope', 'Info', 'Version', 'Settings',
+        function ($scope, Info, Version, Settings) {
             $scope.info = {};
             $scope.docker = {};
             $scope.endpoint = Settings.endpoint;
-            $scope.apiVersion = Settings.version;
 
-            Docker.get({}, function (d) {
+            Version.get({}, function (d) {
                 $scope.docker = d;
             });
-            System.get({}, function (d) {
+            Info.get({}, function (d) {
                 $scope.info = d;
             });
         }]);
@@ -1349,15 +1370,159 @@ angular.module('masthead', [])
         $scope.template = 'app/components/masthead/masthead.html';
     }]);
 
+angular.module('network', []).config(['$routeProvider', function ($routeProvider) {
+    $routeProvider.when('/networks/:id/', {
+        templateUrl: 'app/components/network/network.html',
+        controller: 'NetworkController'
+    });
+}]).controller('NetworkController', ['$scope', 'Network', 'ViewSpinner', 'Messages', '$routeParams', '$location', 'errorMsgFilter',
+    function ($scope, Network, ViewSpinner, Messages, $routeParams, $location, errorMsgFilter) {
+
+        $scope.disconnect = function disconnect(networkId, containerId) {
+            ViewSpinner.spin();
+            Network.disconnect({id: $routeParams.id}, {Container: containerId}, function (d) {
+                ViewSpinner.stop();
+                Messages.send("Container disconnected", containerId);
+                $location.path('/networks/' + $routeParams.id); // Refresh the current page.
+            }, function (e) {
+                ViewSpinner.stop();
+                Messages.error("Failure", e.data);
+            });
+        };
+        $scope.connect = function connect(networkId, containerId) {
+            ViewSpinner.spin();
+            Network.connect({id: $routeParams.id}, {Container: containerId}, function (d) {
+                ViewSpinner.stop();
+                var errmsg = errorMsgFilter(d);
+                if (errmsg) {
+                    Messages.error('Error', errmsg);
+                } else {
+                    Messages.send("Container connected", d);
+                }
+                $location.path('/networks/' + $routeParams.id); // Refresh the current page.
+            }, function (e) {
+                ViewSpinner.stop();
+                Messages.error("Failure", e.data);
+            });
+        };
+        $scope.remove = function remove(networkId) {
+            ViewSpinner.spin();
+            Network.remove({id: $routeParams.id}, function (d) {
+                ViewSpinner.stop();
+                Messages.send("Network removed", d);
+                $location.path('/networks'); // Go to the networks page
+            }, function (e) {
+                ViewSpinner.stop();
+                Messages.error("Failure", e.data);
+            });
+        };
+
+        ViewSpinner.spin();
+        Network.get({id: $routeParams.id}, function (d) {
+            $scope.network = d;
+            ViewSpinner.stop();
+        }, function (e) {
+            Messages.error("Failure", e.data);
+            ViewSpinner.stop();
+        });
+    }]);
+
+angular.module('networks', []).config(['$routeProvider', function ($routeProvider) {
+    $routeProvider.when('/networks/', {
+        templateUrl: 'app/components/networks/networks.html',
+        controller: 'NetworksController'
+    });
+}]).controller('NetworksController', ['$scope', 'Network', 'ViewSpinner', 'Messages', '$route', 'errorMsgFilter',
+    function ($scope, Network, ViewSpinner, Messages, $route, errorMsgFilter) {
+        $scope.sortType = 'Name';
+        $scope.sortReverse = true;
+        $scope.toggle = false;
+        $scope.order = function(sortType) {
+            $scope.sortReverse = ($scope.sortType === sortType) ? !$scope.sortReverse : false;
+            $scope.sortType = sortType;
+        };
+        $scope.createNetworkConfig = {
+            "Name": '',
+            "Driver": '',
+            "IPAM": {
+                "Config": [{
+                    "Subnet": '',
+                    "IPRange": '',
+                    "Gateway": ''
+                }]
+            }
+        };
+
+
+
+        $scope.removeAction = function () {
+            ViewSpinner.spin();
+            var counter = 0;
+            var complete = function () {
+                counter = counter - 1;
+                if (counter === 0) {
+                    ViewSpinner.stop();
+                }
+            };
+            angular.forEach($scope.networks, function (network) {
+                if (network.Checked) {
+                    counter = counter + 1;
+                    Network.remove({id: network.Id}, function (d) {
+                        Messages.send("Network deleted", network.Id);
+                        var index = $scope.networks.indexOf(network);
+                        $scope.networks.splice(index, 1);
+                        complete();
+                    }, function (e) {
+                        Messages.error("Failure", e.data);
+                        complete();
+                    });
+                }
+            });
+        };
+
+        $scope.toggleSelectAll = function () {
+            angular.forEach($scope.filteredNetworks, function (i) {
+                i.Checked = $scope.toggle;
+            });
+        };
+
+        $scope.addNetwork = function addNetwork(createNetworkConfig) {
+            ViewSpinner.spin();
+            Network.create(createNetworkConfig, function (d) {
+                if (d.Id) {
+                    Messages.send("Network created", d.Id);
+                } else {
+                    Messages.error('Failure', errorMsgFilter(d));
+                }
+                ViewSpinner.stop();
+                fetchNetworks();
+            }, function (e) {
+                Messages.error("Failure", e.data);
+                ViewSpinner.stop();
+            });
+        };
+
+        function fetchNetworks() {
+            ViewSpinner.spin();
+            Network.query({}, function (d) {
+                $scope.networks = d;
+                ViewSpinner.stop();
+            }, function (e) {
+                Messages.error("Failure", e.data);
+                ViewSpinner.stop();
+            });
+        }
+        fetchNetworks();
+    }]);
+
 angular.module('pullImage', [])
-    .controller('PullImageController', ['$scope', '$log', 'Dockerfile', 'Messages', 'Image', 'ViewSpinner',
-        function ($scope, $log, Dockerfile, Messages, Image, ViewSpinner) {
+    .controller('PullImageController', ['$scope', '$log', 'Messages', 'Image', 'ViewSpinner',
+        function ($scope, $log, Messages, Image, ViewSpinner) {
             $scope.template = 'app/components/pullImage/pullImage.html';
 
             $scope.init = function () {
                 $scope.config = {
                     registry: '',
-                    repo: '',
                     fromImage: '',
                     tag: 'latest'
                 };
@@ -1371,11 +1536,11 @@ angular.module('pullImage', [])
 
             $scope.pull = function () {
                 $('#error-message').hide();
-                var config = angular.copy($scope.config);
-                var imageName = (config.registry ? config.registry + '/' : '' ) +
-                    (config.repo ? config.repo + '/' : '') +
-                    (config.fromImage) +
-                    (config.tag ? ':' + config.tag : '');
+                var imageName = ($scope.config.registry ? $scope.config.registry + '/' : '' ) +
+                  ($scope.config.fromImage);
+                var config = {};
+                config.fromImage = imageName;
+                config.tag = $scope.config.tag;
 
                 ViewSpinner.spin();
                 $('#pull-modal').modal('hide');
@@ -1421,7 +1586,7 @@ angular.module('sidebar', [])
 angular.module('startContainer', ['ui.bootstrap'])
     .controller('StartContainerController', ['$scope', '$routeParams', '$location', 'Container', 'Messages', 'containernameFilter', 'errorMsgFilter',
         function ($scope, $routeParams, $location, Container, Messages, containernameFilter, errorMsgFilter) {
-            //$scope.template = 'app/components/startContainer/startcontainer.html';
+            $scope.template = 'app/components/startContainer/startcontainer.html';
 
             Container.query({all: 1}, function (d) {
                 $scope.containerNames = d.map(function (container) {
@@ -1431,6 +1596,7 @@ angular.module('startContainer', ['ui.bootstrap'])
 
             $scope.config = {
                 Env: [],
+                Labels: [],
                 Volumes: [],
                 SecurityOpts: [],
                 HostConfig: {
@@ -1459,7 +1625,7 @@ angular.module('startContainer', ['ui.bootstrap'])
 
             function rmEmptyKeys(col) {
                 for (var key in col) {
-                    if (col[key] === null || col[key] === undefined || col[key] === '' || $.isEmptyObject(col[key]) || col[key].length === 0) {
+                    if (col[key] === null || col[key] === undefined || col[key] === '' || ($.isPlainObject(col[key]) && $.isEmptyObject(col[key])) || col[key].length === 0) {
                         delete col[key];
                     }
                 }
@@ -1471,57 +1637,9 @@ angular.module('startContainer', ['ui.bootstrap'])
                 });
             }
 
-            function getNames_binds(arr) {
-                var d = ":/home/data";
-                return arr.map(function (item) {
-                    var path = item.name;
-                    var chk_d = (item.name).split(':');
-                    if (chk_d.length > 1) {
-                        return item.name;
-                    }
-                    else {
-                        if (path[0] === '/'){
-                            return path + d;
-                        }
-                        else {
-                            return '/' + path + d;
-                        }
-                    }
-                });
-            }
-
-            $scope.preset = function() {
-                var el = test_image_create;
-                var el_cmd = '';
-                if (el.ContainerConfig.Cmd == null){
-                    el_cmd = '';
-                }
-                else {
-                    el_cmd = el.ContainerConfig.Cmd[0];
-                }
-                $("#input_cmd").val(el_cmd).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid ng-valid-required");
-
-                $("#input_hostname").val(el.Container).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid ng-valid-required");
-                
-                var ran_prefix = (new Date%9e7).toString(36); 
-                var ran_name = (el.ContainerConfig.Image).split(':')[1] + '_' + ran_prefix;
-                $("#input_name").val(ran_name).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid-required ng-valid ng-valid-minlength");
-                $("#name_min_err").attr("class","err ng-hide");
-                
-                $("#input_networkmode").val("bridge");
-                //$scope.rmEntry($scope.config.HostConfig.Binds, bind)
-                $scope.addEntry($scope.config.HostConfig.Binds, {name: '/usr/local/projects/data'})
-                
-                //$scope.rmEntry($scope.config.HostConfig.Links, link)
-                $scope.addEntry($scope.config.HostConfig.PortBindings, {ip: '146.95.173.35', extPort: '', intPort: '8090'})
-
-                $(".req_err").attr("class", "req_err err ng-hide")
-            }
-            
             $scope.create = function () {
                 // Copy the config before transforming fields to the remote API format
                 var config = angular.copy($scope.config);
-                window.test_config = config;
 
                 config.Image = $routeParams.id;
 
@@ -1534,32 +1652,30 @@ angular.module('startContainer', ['ui.bootstrap'])
                 config.Env = config.Env.map(function (envar) {
                     return envar.name + '=' + envar.value;
                 });
+                var labels = {};
+                config.Labels = config.Labels.forEach(function(label) {
+                    labels[label.key] = label.value;
+                });
+                config.Labels = labels;
 
-                //config.HostConfig.Binds = getNames(config.HostConfig.Binds);
-                config.HostConfig.Binds = getNames_binds(config.HostConfig.Binds);
-                window.test_hostconfig = config.HostConfig;
+                config.Volumes = getNames(config.Volumes);
+                config.SecurityOpts = getNames(config.SecurityOpts);
 
+                config.HostConfig.VolumesFrom = getNames(config.HostConfig.VolumesFrom);
+                config.HostConfig.Binds = getNames(config.HostConfig.Binds);
+                config.HostConfig.Links = getNames(config.HostConfig.Links);
+                config.HostConfig.Dns = getNames(config.HostConfig.Dns);
+                config.HostConfig.DnsSearch = getNames(config.HostConfig.DnsSearch);
+                config.HostConfig.CapAdd = getNames(config.HostConfig.CapAdd);
+                config.HostConfig.CapDrop = getNames(config.HostConfig.CapDrop);
+                config.HostConfig.LxcConf = config.HostConfig.LxcConf.reduce(function (prev, cur, idx) {
+                    prev[cur.name] = cur.value;
+                    return prev;
+                }, {});
+                config.HostConfig.ExtraHosts = config.HostConfig.ExtraHosts.map(function (entry) {
+                    return entry.host + ':' + entry.ip;
+                });
 
-                if (typeof(test_opt)!='undefined' && test_opt === 'advanced') {
-                    console.log("Advanced option enabled..")
-                    config.Volumes = getNames(config.Volumes);
-                    config.SecurityOpts = getNames(config.SecurityOpts);
-
-                    config.HostConfig.VolumesFrom = getNames(config.HostConfig.VolumesFrom);
-                    config.HostConfig.Links = getNames(config.HostConfig.Links);
-                    config.HostConfig.Dns = getNames(config.HostConfig.Dns);
-                    config.HostConfig.DnsSearch = getNames(config.HostConfig.DnsSearch);
-                    config.HostConfig.CapAdd = getNames(config.HostConfig.CapAdd);
-                    config.HostConfig.CapDrop = getNames(config.HostConfig.CapDrop);
-                    config.HostConfig.LxcConf = config.HostConfig.LxcConf.reduce(function (prev, cur, idx) {
-                        prev[cur.name] = cur.value;
-                        return prev;
-                    }, {});
-                    config.HostConfig.ExtraHosts = config.HostConfig.ExtraHosts.map(function (entry) {
-                        return entry.host + ':' + entry.ip;
-                    });
-                }
-                
                 var ExposedPorts = {};
                 var PortBindings = {};
                 config.HostConfig.PortBindings.forEach(function (portBinding) {
@@ -1594,19 +1710,10 @@ angular.module('startContainer', ['ui.bootstrap'])
                 var s = $scope;
                 Container.create(config, function (d) {
                     if (d.Id) {
-                        var reqBody = config.HostConfig || {};
-                        reqBody.id = d.Id;
-                        ctor.start(reqBody, function (cd) {
-                            if (cd.id) {
-                                Messages.send('Container Started', d.Id);
-                                $('#create-modal').modal('hide');
-                                loc.path('/containers/' + d.Id + '/');
-                            } else {
-                                failedRequestHandler(cd, Messages);
-                                ctor.remove({id: d.Id}, function () {
-                                    Messages.send('Container Removed', d.Id);
-                                });
-                            }
+                        ctor.start({id: d.Id}, {}, function (cd) {
+                            Messages.send('Container Started', d.Id);
+                            $('#create-modal').modal('hide');
+                            loc.path('/containers/' + d.Id + '/');
                         }, function (e) {
                             failedRequestHandler(e, Messages);
                         });
@@ -1626,201 +1733,11 @@ angular.module('startContainer', ['ui.bootstrap'])
                 array.splice(idx, 1);
             };
         }]);
-
-
-angular.module('startContainer2', ['ui.bootstrap'])
-    .controller('StartContainerController2', ['$scope', '$routeParams', '$location', 'Container', 'Messages', 'containernameFilter', 'errorMsgFilter',
-        function ($scope, $routeParams, $location, Container, Messages, containernameFilter, errorMsgFilter) {
-            $scope.template = 'app/components/startContainer2/startcontainer2.html';
-
-            Container.query({all: 1}, function (d) {
-                $scope.containerNames = d.map(function (container) {
-                    return containernameFilter(container);
-                });
-            });
-
-            $scope.config = {
-                Env: [],
-                Volumes: [],
-                SecurityOpts: [],
-                HostConfig: {
-                    PortBindings: [],
-                    Binds: [],
-                    Links: [],
-                    Dns: [],
-                    DnsSearch: [],
-                    VolumesFrom: [],
-                    CapAdd: [],
-                    CapDrop: [],
-                    Devices: [],
-                    LxcConf: [],
-                    ExtraHosts: []
-                }
-            };
-
-            function failedRequestHandler(e, Messages) {
-                Messages.error('Error', errorMsgFilter(e));
-            }
-
-            function rmEmptyKeys(col) {
-                for (var key in col) {
-                    if (col[key] === null || col[key] === undefined || col[key] === '' || $.isEmptyObject(col[key]) || col[key].length === 0) {
-                        delete col[key];
-                    }
-                }
-            }
-
-            function getNames(arr) {
-                return arr.map(function (item) {
-                    return item.name;
-                });
-            }
-
-            $scope.preset = function() {
-                var el = test_image_create;
-                $("#input_cmd").val(el.ContainerConfig.Cmd[0]).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid ng-valid-required");
-
-                $("#input_hostname").val(el.Container).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid ng-valid-required");
-                
-                var ran_prefix = (new Date%9e7).toString(36); 
-                var ran_name = (el.ContainerConfig.Image).split(':')[1] + '_' + ran_prefix;
-                $("#input_name").val(ran_name).attr("class","form-control ng-touched ng-dirty ng-valid-parse ng-valid-required ng-valid ng-valid-minlength");
-                $("#name_min_err").attr("class","err ng-hide");
-                
-                $("#input_networkmode").val("bridge");
-                //$scope.rmEntry($scope.config.HostConfig.Binds, bind)
-                $scope.addEntry($scope.config.HostConfig.Binds, {name: '/usr/local/projects/data:/home/data'})
-                
-                //$scope.rmEntry($scope.config.HostConfig.Links, link)
-                $scope.addEntry($scope.config.HostConfig.PortBindings, {ip: '146.95.173.35', extPort: '', intPort: '8090'})
-
-                $(".req_err").attr("class", "req_err err ng-hide")
-            }
-            
-            $scope.create = function () {
-                // Copy the config before transforming fields to the remote API format
-                var config = angular.copy($scope.config);
-                window.test_config = config;
-
-                config.Image = $routeParams.id;
-
-                if (config.Cmd && config.Cmd[0] === "[") {
-                    config.Cmd = angular.fromJson(config.Cmd);
-                } else if (config.Cmd) {
-                    config.Cmd = config.Cmd.split(' ');
-                }
-
-                /*
-                config.Env = config.Env.map(function (envar) {
-                    return envar.name + '=' + envar.value;
-                });
-                */
-                //config.Volumes = getNames(config.Volumes);
-                //config.SecurityOpts = getNames(config.SecurityOpts);
-
-                //config.HostConfig.VolumesFrom = getNames(config.HostConfig.VolumesFrom);
-                config.HostConfig.Binds = getNames(config.HostConfig.Binds);
-                //config.HostConfig.Links = getNames(config.HostConfig.Links);
-                //config.HostConfig.Dns = getNames(config.HostConfig.Dns);
-                //config.HostConfig.DnsSearch = getNames(config.HostConfig.DnsSearch);
-                //config.HostConfig.CapAdd = getNames(config.HostConfig.CapAdd);
-                //config.HostConfig.CapDrop = getNames(config.HostConfig.CapDrop);
-                /*
-                config.HostConfig.LxcConf = config.HostConfig.LxcConf.reduce(function (prev, cur, idx) {
-                    prev[cur.name] = cur.value;
-                    return prev;
-                }, {});
-                
-                config.HostConfig.ExtraHosts = config.HostConfig.ExtraHosts.map(function (entry) {
-                    return entry.host + ':' + entry.ip;
-                });
-                */
-                var ExposedPorts = {};
-                var PortBindings = {};
-                config.HostConfig.PortBindings.forEach(function (portBinding) {
-                    var intPort = portBinding.intPort + "/tcp";
-                    if (portBinding.protocol === "udp") {
-                        intPort = portBinding.intPort + "/udp";
-                    }
-                    var binding = {
-                        HostIp: portBinding.ip,
-                        HostPort: portBinding.extPort
-                    };
-                    if (portBinding.intPort) {
-                        ExposedPorts[intPort] = {};
-                        if (intPort in PortBindings) {
-                            PortBindings[intPort].push(binding);
-                        } else {
-                            PortBindings[intPort] = [binding];
-                        }
-                    } else {
-                        Messages.send('Warning', 'Internal port must be specified for PortBindings');
-                    }
-                });
-                //config.ExposedPorts = ExposedPorts;
-                config.HostConfig.PortBindings = PortBindings;
-
-                // Remove empty fields from the request to avoid overriding defaults
-                rmEmptyKeys(config.HostConfig);
-                rmEmptyKeys(config);
-
-                var ctor = Container;
-                var loc = $location;
-                var s = $scope;
-                Container.create(config, function (d) {
-                    if (d.Id) {
-                        var reqBody = config.HostConfig || {};
-                        reqBody.id = d.Id;
-                        ctor.start(reqBody, function (cd) {
-                            if (cd.id) {
-                                Messages.send('Container Started', d.Id);
-                                $('#create-modal2').modal('hide');
-                                loc.path('/containers/' + d.Id + '/');
-                            } else {
-                                failedRequestHandler(cd, Messages);
-                                ctor.remove({id: d.Id}, function () {
-                                    Messages.send('Container Removed', d.Id);
-                                });
-                            }
-                        }, function (e) {
-                            failedRequestHandler(e, Messages);
-                        });
-                    } else {
-                        failedRequestHandler(d, Messages);
-                    }
-                }, function (e) {
-                    failedRequestHandler(e, Messages);
-                });
-            };
-
-            $scope.addEntry = function (array, entry) {
-                array.push(entry);
-            };
-            $scope.rmEntry = function (array, entry) {
-                var idx = array.indexOf(entry);
-                array.splice(idx, 1);
-            };
-        }]);
-
 
 angular.module('stats', [])
     .controller('StatsController', ['Settings', '$scope', 'Messages', '$timeout', 'Container', '$routeParams', 'humansizeFilter', '$sce', function (Settings, $scope, Messages, $timeout, Container, $routeParams, humansizeFilter, $sce) {
-        // TODO: Implement memory chart, force scale to 0-100 for cpu, 0 to limit for memory, fix charts on dashboard,
+        // TODO: Force scale to 0-100 for cpu, fix charts on dashboard,
         // TODO: Force memory scale to 0 - max memory
-        //var initialStats = {}; // Used to set scale of memory graph.
-        //
-        //Container.stats({id: $routeParams.id}, function (d) {
-        //    var arr = Object.keys(d).map(function (key) {
-        //        return d[key];
-        //    });
-        //    if (arr.join('').indexOf('no such id') !== -1) {
-        //        Messages.error('Unable to retrieve stats', 'Is this container running?');
-        //        return;
-        //    }
-        //    initialStats = d;
-        //}, function () {
-        //    Messages.error('Unable to retrieve stats', 'Is this container running?');
-        //});
 
         var cpuLabels = [];
         var cpuData = [];
@@ -1879,7 +1796,7 @@ angular.module('stats', [])
                 color: 'rgba(255,180,174,0.5)',
                 title: 'Rx Data'
             }];
-        //legend($('#network-legend').get(0), networkLegendData);
+        legend($('#network-legend').get(0), networkLegendData);
 
         Chart.defaults.global.animationSteps = 30; // Lower from 60 to ease CPU load.
         var cpuChart = new Chart($('#cpu-stats-chart').get(0).getContext("2d")).Line({
@@ -1903,7 +1820,6 @@ angular.module('stats', [])
                 //scaleStepWidth: Math.ceil(initialStats.memory_stats.limit / 10),
                 //scaleStartValue: 0
             });
-        /*
         var networkChart = new Chart($('#network-stats-chart').get(0).getContext("2d")).Line({
             labels: networkLabels,
             datasets: [networkRxDataset, networkTxDataset]
@@ -1914,7 +1830,7 @@ angular.module('stats', [])
             responsive: true
         });
         $scope.networkLegend = $sce.trustAsHtml(networkChart.generateLegend());
-        */
+
         function updateStats() {
             Container.stats({id: $routeParams.id}, function (d) {
                 var arr = Object.keys(d).map(function (key) {
@@ -1929,10 +1845,11 @@ angular.module('stats', [])
                 $scope.data = d;
                 updateCpuChart(d);
                 updateMemoryChart(d);
-                //updateNetworkChart(d);
-                timeout = $timeout(updateStats, 2000);
+                updateNetworkChart(d);
+                timeout = $timeout(updateStats, 5000);
             }, function () {
                 Messages.error('Unable to retrieve stats', 'Is this container running?');
+                timeout = $timeout(updateStats, 5000);
             });
         }
 
@@ -1944,13 +1861,11 @@ angular.module('stats', [])
         updateStats();
 
         function updateCpuChart(data) {
-            console.log('updateCpuChart', data);
             cpuChart.addData([calculateCPUPercent(data)], new Date(data.read).toLocaleTimeString());
             cpuChart.removeData();
         }
 
         function updateMemoryChart(data) {
-            console.log('updateMemoryChart', data);
             memoryChart.addData([data.memory_stats.usage], new Date(data.read).toLocaleTimeString());
             memoryChart.removeData();
         }
@@ -1958,6 +1873,12 @@ angular.module('stats', [])
         var lastRxBytes = 0, lastTxBytes = 0;
 
         function updateNetworkChart(data) {
+            // 1.9+ contains an object of networks, for now we'll just show stats for the first network
+            // TODO: Show graphs for all networks
+            if (data.networks) {
+                $scope.networkName = Object.keys(data.networks)[0];
+                data.network = data.networks[$scope.networkName];
+            }
             var rxBytes = 0, txBytes = 0;
             if (lastRxBytes !== 0 || lastTxBytes !== 0) {
                 // These will be zero on first call, ignore to prevent large graph spike
@@ -1966,9 +1887,8 @@ angular.module('stats', [])
             }
             lastRxBytes = data.network.rx_bytes;
             lastTxBytes = data.network.tx_bytes;
-            console.log('updateNetworkChart', data);
-            //networkChart.addData([rxBytes, txBytes], new Date(data.read).toLocaleTimeString());
-            //networkChart.removeData();
+            networkChart.addData([rxBytes, txBytes], new Date(data.read).toLocaleTimeString());
+            networkChart.removeData();
         }
 
         function calculateCPUPercent(stats) {
@@ -1984,13 +1904,98 @@ angular.module('stats', [])
             var systemDelta = curCpu.system_cpu_usage - prevCpu.system_cpu_usage;
 
             if (systemDelta > 0.0 && cpuDelta > 0.0) {
-                //console.log('size thing:', curCpu.cpu_usage.percpu_usage);
                 cpuPercent = (cpuDelta / systemDelta) * curCpu.cpu_usage.percpu_usage.length * 100.0;
             }
             return cpuPercent;
         }
+
+        Container.get({id: $routeParams.id}, function (d) {
+            $scope.containerName = d.Name.substring(1);
+        }, function (e) {
+            Messages.error("Failure", e.data);
+        });
     }])
 ;
+angular.module('volumes', []).config(['$routeProvider', function ($routeProvider) {
+    $routeProvider.when('/volumes/', {
+        templateUrl: 'app/components/volumes/volumes.html',
+        controller: 'VolumesController'
+    });
+}]).controller('VolumesController', ['$scope', 'Volume', 'ViewSpinner', 'Messages', '$route', 'errorMsgFilter',
+    function ($scope, Volume, ViewSpinner, Messages, $route, errorMsgFilter) {
+        $scope.sortType = 'Name';
+        $scope.sortReverse = true;
+        $scope.toggle = false;
+        $scope.order = function(sortType) {
+            $scope.sortReverse = ($scope.sortType === sortType) ? !$scope.sortReverse : false;
+            $scope.sortType = sortType;
+        };
+        $scope.createVolumeConfig = {
+            "Name": "",
+            "Driver": ""
+        };
+
+
+
+        $scope.removeAction = function () {
+            ViewSpinner.spin();
+            var counter = 0;
+            var complete = function () {
+                counter = counter - 1;
+                if (counter === 0) {
+                    ViewSpinner.stop();
+                }
+            };
+            angular.forEach($scope.volumes, function (volume) {
+                if (volume.Checked) {
+                    counter = counter + 1;
+                    Volume.remove({name: volume.Name}, function (d) {
+                        Messages.send("Volume deleted", volume.Name);
+                        var index = $scope.volumes.indexOf(volume);
+                        $scope.volumes.splice(index, 1);
+                        complete();
+                    }, function (e) {
+                        Messages.error("Failure", e.data);
+                        complete();
+                    });
+                }
+            });
+        };
+
+        $scope.toggleSelectAll = function () {
+            angular.forEach($scope.filteredVolumes, function (i) {
+                i.Checked = $scope.toggle;
+            });
+        };
+
+        $scope.addVolume = function addVolume(createVolumeConfig) {
+            ViewSpinner.spin();
+            Volume.create(createVolumeConfig, function (d) {
+                if (d.Name) {
+                    Messages.send("Volume created", d.Name);
+                } else {
+                    Messages.error('Failure', errorMsgFilter(d));
+                }
+                ViewSpinner.stop();
+                fetchVolumes();
+            }, function (e) {
+                Messages.error("Failure", e.data);
+                ViewSpinner.stop();
+            });
+        };
+
+        function fetchVolumes() {
+            ViewSpinner.spin();
+            Volume.query({}, function (d) {
+                $scope.volumes = d.Volumes;
+                ViewSpinner.stop();
+            }, function (e) {
+                Messages.error("Failure", e.data);
+                ViewSpinner.stop();
+            });
+        }
+        fetchVolumes();
+    }]);
 
 angular.module('uifordocker.filters', [])
     .filter('truncate', function () {
@@ -2263,7 +2268,8 @@ angular.module('uifordocker.filters', [])
     });
 
 
-angular.module('uifordocker.services', ['ngResource'])
+
+angular.module('uifordocker.services', ['ngResource', 'ngSanitize'])
     .factory('Container', ['$resource', 'Settings', function ContainerFactory($resource, Settings) {
         'use strict';
         // Resource for interacting with the docker containers
@@ -2281,9 +2287,9 @@ angular.module('uifordocker.services', ['ngResource'])
             unpause: {method: 'POST', params: {id: '@id', action: 'unpause'}},
             changes: {method: 'GET', params: {action: 'changes'}, isArray: true},
             create: {method: 'POST', params: {action: 'create'}},
-            remove: {method: 'DELETE', params: {id: '@id', v: 1}},
+            remove: {method: 'DELETE', params: {id: '@id', v: 0}},
             rename: {method: 'POST', params: {id: '@id', action: 'rename'}, isArray: false},
-            stats: {method: 'GET', params: {id: '@id', stream: false, action: 'stats'}, timeout: 2000}
+            stats: {method: 'GET', params: {id: '@id', stream: false, action: 'stats'}, timeout: 5000}
         });
     }])
     .factory('ContainerCommit', ['$resource', '$http', 'Settings', function ContainerCommitFactory($resource, $http, Settings) {
@@ -2291,14 +2297,15 @@ angular.module('uifordocker.services', ['ngResource'])
         // http://docs.docker.com/reference/api/docker_remote_api_v1.20/#create-a-new-image-from-a-container-s-changes
         return {
             commit: function (params, callback) {
-                window.test_commit_params = params;
                 $http({
                     method: 'POST',
                     url: Settings.url + '/commit',
                     params: {
                         'container': params.id,
-                        'repo': params.repo
-                    }
+                        'tag': params.tag || null,
+                        'repo': params.repo || null
+                    },
+                    data: params.config
                 }).success(callback).error(function (data, status, headers, config) {
                     console.log(error, data);
                 });
@@ -2353,15 +2360,16 @@ angular.module('uifordocker.services', ['ngResource'])
                     var str = data.replace(/\n/g, " ").replace(/\}\W*\{/g, "}, {");
                     return angular.fromJson("[" + str + "]");
                 }],
-                params: {action: 'create', fromImage: '@fromImage', repo: '@repo', tag: '@tag', registry: '@registry'}
+                params: {action: 'create', fromImage: '@fromImage', tag: '@tag'}
             },
             insert: {method: 'POST', params: {id: '@id', action: 'insert'}},
             push: {method: 'POST', params: {id: '@id', action: 'push'}},
             tag: {method: 'POST', params: {id: '@id', action: 'tag', force: 0, repo: '@repo', tag: '@tag'}},
-            remove: {method: 'DELETE', params: {id: '@id'}, isArray: true}
+            remove: {method: 'DELETE', params: {id: '@id'}, isArray: true},
+            inspect: {method: 'GET', params: {id: '@id', action: 'json'}}
         });
     }])
-    .factory('Docker', ['$resource', 'Settings', function DockerFactory($resource, Settings) {
+    .factory('Version', ['$resource', 'Settings', function VersionFactory($resource, Settings) {
         'use strict';
         // http://docs.docker.com/reference/api/docker_remote_api_v1.20/#show-the-docker-version-information
         return $resource(Settings.url + '/version', {}, {
@@ -2376,27 +2384,48 @@ angular.module('uifordocker.services', ['ngResource'])
             update: {method: 'POST'}
         });
     }])
-    .factory('System', ['$resource', 'Settings', function SystemFactory($resource, Settings) {
+    .factory('Info', ['$resource', 'Settings', function InfoFactory($resource, Settings) {
         'use strict';
         // http://docs.docker.com/reference/api/docker_remote_api_v1.20/#display-system-wide-information
         return $resource(Settings.url + '/info', {}, {
             get: {method: 'GET'}
         });
     }])
-    .factory('Settings', ['DOCKER_ENDPOINT', 'DOCKER_PORT', 'DOCKER_API_VERSION', 'UI_VERSION', function SettingsFactory(DOCKER_ENDPOINT, DOCKER_PORT, DOCKER_API_VERSION, UI_VERSION) {
+    .factory('Network', ['$resource', 'Settings', function NetworkFactory($resource, Settings) {
+        'use strict';
+        // http://docs.docker.com/reference/api/docker_remote_api_v1.20/#2-5-networks
+        return $resource(Settings.url + '/networks/:id/:action', {id: '@id'}, {
+            query: {method: 'GET', isArray: true},
+            get: {method: 'GET'},
+            create: {method: 'POST', params: {action: 'create'}},
+            remove: {method: 'DELETE'},
+            connect: {method: 'POST', params: {action: 'connect'}},
+            disconnect: {method: 'POST', params: {action: 'disconnect'}}
+        });
+    }])
+    .factory('Volume', ['$resource', 'Settings', function VolumeFactory($resource, Settings) {
+        'use strict';
+        // http://docs.docker.com/reference/api/docker_remote_api_v1.20/#2-5-networks
+        return $resource(Settings.url + '/volumes/:name/:action', {name: '@name'}, {
+            query: {method: 'GET'},
+            get: {method: 'GET'},
+            create: {method: 'POST', params: {action: 'create'}},
+            remove: {method: 'DELETE'}
+        });
+    }])
+    .factory('Settings', ['DOCKER_ENDPOINT', 'DOCKER_PORT', 'UI_VERSION', function SettingsFactory(DOCKER_ENDPOINT, DOCKER_PORT, UI_VERSION) {
         'use strict';
         var url = DOCKER_ENDPOINT;
         if (DOCKER_PORT) {
             url = url + DOCKER_PORT + '\\' + DOCKER_PORT;
         }
+        var firstLoad = (localStorage.getItem('firstLoad') || 'true') === 'true';
         return {
-            displayAll: true,
+            displayAll: false,
             endpoint: DOCKER_ENDPOINT,
-            version: DOCKER_API_VERSION,
-            rawUrl: DOCKER_ENDPOINT + DOCKER_PORT + '/' + DOCKER_API_VERSION,
             uiVersion: UI_VERSION,
             url: url,
-            firstLoad: true
+            firstLoad: firstLoad
         };
     }])
     .factory('ViewSpinner', function ViewSpinnerFactory() {
@@ -2413,13 +2442,13 @@ angular.module('uifordocker.services', ['ngResource'])
             }
         };
     })
-    .factory('Messages', ['$rootScope', function MessagesFactory($rootScope) {
+    .factory('Messages', ['$rootScope', '$sanitize', function MessagesFactory($rootScope, $sanitize) {
         'use strict';
         return {
             send: function (title, text) {
                 $.gritter.add({
-                    title: title,
-                    text: text,
+                    title: $sanitize(title),
+                    text: $sanitize(text),
                     time: 2000,
                     before_open: function () {
                         if ($('.gritter-item-wrapper').length === 3) {
@@ -2430,8 +2459,8 @@ angular.module('uifordocker.services', ['ngResource'])
             },
             error: function (title, text) {
                 $.gritter.add({
-                    title: title,
-                    text: text,
+                    title: $sanitize(title),
+                    text: $sanitize(text),
                     time: 10000,
                     before_open: function () {
                         if ($('.gritter-item-wrapper').length === 4) {
@@ -2439,23 +2468,6 @@ angular.module('uifordocker.services', ['ngResource'])
                         }
                     }
                 });
-            }
-        };
-    }])
-    .factory('Dockerfile', ['Settings', function DockerfileFactory(Settings) {
-        'use strict';
-        // http://docs.docker.com/reference/api/docker_remote_api_v1.20/#build-image-from-a-dockerfile
-        var url = Settings.rawUrl + '/build';
-        return {
-            build: function (file, callback) {
-                var data = new FormData();
-                var dockerfile = new Blob([file], {type: 'text/text'});
-                data.append('Dockerfile', dockerfile);
-
-                var request = new XMLHttpRequest();
-                request.onload = callback;
-                request.open('POST', url);
-                request.send(data);
             }
         };
     }])
@@ -2488,9 +2500,10 @@ angular.module('uifordocker.services', ['ngResource'])
                     labels.push(k);
                     data.push(map[k]);
                     if (map[k] > max) {
-                      max = map[k];
+                        max = map[k];
                     }
                 }
+                var steps = Math.min(max, 10);
                 var dataset = {
                     fillColor: "rgba(151,187,205,0.5)",
                     strokeColor: "rgba(151,187,205,1)",
@@ -2503,15 +2516,15 @@ angular.module('uifordocker.services', ['ngResource'])
                         datasets: [dataset]
                     },
                     {
-                        scaleStepWidth: 1,
+                        scaleStepWidth: Math.ceil(max / steps),
                         pointDotRadius: 1,
+                        scaleIntegersOnly: true,
                         scaleOverride: true,
-                        scaleSteps: max
+                        scaleSteps: steps
                     });
             }
         };
     }]);
-
 
 function ImageViewModel(data) {
     this.Id = data.Id;
@@ -2532,16 +2545,9 @@ function ContainerViewModel(data) {
     this.Status = data.Status;
     this.Checked = false;
     this.Names = data.Names;
-    this.Ports = {};
-    if (data.Ports.length > 0) {
-        this.Ports.Private_port = data.Ports[0].PrivatePort;
-        this.Ports.Public_port = data.Ports[0].PublicPort;
-        this.Ports.IP = data.Ports[0].IP;
-    }
 }
 
-
-angular.module('uifordocker.templates', ['app/components/builder/builder.html', 'app/components/container/container.html', 'app/components/containerLogs/containerlogs.html', 'app/components/containerTop/containerTop.html', 'app/components/containers/containers.html', 'app/components/containersNetwork/containersNetwork.html', 'app/components/dashboard/dashboard.html', 'app/components/events/events.html', 'app/components/footer/statusbar.html', 'app/components/image/image.html', 'app/components/images/images.html', 'app/components/info/info.html', 'app/components/masthead/masthead.html', 'app/components/pullImage/pullImage.html', 'app/components/sidebar/sidebar.html', 'app/components/startContainer/startcontainer.html', 'app/components/startContainer/startcontainer2.html', 'app/components/startContainer2/startcontainer2.html', 'app/components/stats/stats.html']);
+angular.module('uifordocker.templates', ['app/components/builder/builder.html', 'app/components/container/container.html', 'app/components/containerLogs/containerlogs.html', 'app/components/containerTop/containerTop.html', 'app/components/containers/containers.html', 'app/components/containersNetwork/containersNetwork.html', 'app/components/dashboard/dashboard.html', 'app/components/events/events.html', 'app/components/footer/statusbar.html', 'app/components/image/image.html', 'app/components/images/images.html', 'app/components/info/info.html', 'app/components/masthead/masthead.html', 'app/components/network/network.html', 'app/components/networks/networks.html', 'app/components/pullImage/pullImage.html', 'app/components/sidebar/sidebar.html', 'app/components/startContainer/startcontainer.html', 'app/components/stats/stats.html', 'app/components/volumes/volumes.html']);
 
 angular.module("app/components/builder/builder.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("app/components/builder/builder.html",
@@ -2627,6 +2633,48 @@ angular.module("app/components/container/container.html", []).run(["$templateCac
     "            </td>\n" +
     "        </tr>\n" +
     "        <tr>\n" +
+    "            <td>Environment:</td>\n" +
+    "            <td>\n" +
+    "                <div ng-show=\"!editEnv\">\n" +
+    "                    <button class=\"btn btn-default btn-xs pull-right\" ng-click=\"editEnv = false\"><!--<i class=\"glyphicon glyphicon-pencil\"></i>--></button>\n" +
+    "                    <ul>\n" +
+    "                        <li ng-repeat=\"k in container.Config.Env\">{{ k }}</li>\n" +
+    "                    </ul>\n" +
+    "                </div>\n" +
+    "                <div class=\"form-group\" ng-show=\"editEnv\">\n" +
+    "                    <label>Env:</label>\n" +
+    "\n" +
+    "                    <div ng-repeat=\"envar in newCfg.Env\">\n" +
+    "                        <div class=\"form-group form-inline\">\n" +
+    "                            <div class=\"form-group\">\n" +
+    "                                <label class=\"sr-only\">Variable Name:</label>\n" +
+    "                                <input type=\"text\" ng-model=\"envar.name\" class=\"form-control input-sm\"\n" +
+    "                                       placeholder=\"NAME\"/>\n" +
+    "                            </div>\n" +
+    "                            <div class=\"form-group\">\n" +
+    "                                <label class=\"sr-only\">Variable Value:</label>\n" +
+    "                                <input type=\"text\" ng-model=\"envar.value\" class=\"form-control input-sm\" style=\"width: 400px\"\n" +
+    "                                       placeholder=\"value\"/>\n" +
+    "                            </div>\n" +
+    "                            <div class=\"form-group\">\n" +
+    "                                <button class=\"btn btn-danger btn-sm input-sm form-control\"\n" +
+    "                                        ng-click=\"rmEntry(newCfg.Env, envar)\"><i class=\"glyphicon glyphicon-remove\"></i>\n" +
+    "                                </button>\n" +
+    "                            </div>\n" +
+    "                        </div>\n" +
+    "                    </div>\n" +
+    "                    <button type=\"button\" class=\"btn btn-success btn-sm\"\n" +
+    "                            ng-click=\"addEntry(newCfg.Env, {name: '', value: ''})\"><i class=\"glyphicon glyphicon-plus\"></i> Add\n" +
+    "                    </button>\n" +
+    "                    <button class=\"btn btn-primary btn-sm\"\n" +
+    "                            ng-click=\"restartEnv()\"\n" +
+    "                            ng-show=\"!container.State.Restarting\">Commit and restart</button>\n" +
+    "                </div>\n" +
+    "\n" +
+    "\n" +
+    "            </td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
     "            <td>Internal Port:</td>\n" +
     "            <td>\n" +
     "                <li ng-repeat=\"(k, v) in container.Config.ExposedPorts\">{{ k }}</li>\n" +
@@ -2641,10 +2689,47 @@ angular.module("app/components/container/container.html", []).run(["$templateCac
     "            </td>\n" +
     "        </tr>\n" +
     "        <tr>\n" +
+    "            <td>Bindings:</td>\n" +
+    "            <td>\n" +
+    "                <div ng-show=\"!editBinds\">\n" +
+    "                    <button class=\"btn btn-default btn-xs pull-right\" ng-click=\"editBinds=false\"><!-- <i class=\"glyphicon glyphicon-pencil\"></i> --></button>\n" +
+    "                    <ul>\n" +
+    "                        <li ng-repeat=\"b in container.HostConfig.Binds\">{{ b }}</li>\n" +
+    "                    </ul>\n" +
+    "                </div>\n" +
+    "                <div ng-show=\"editBinds\">\n" +
+    "                    <div ng-repeat=\"(vol, b) in newCfg.Binds\" class=\"form-group form-inline\">\n" +
+    "                        <div class=\"form-group\">\n" +
+    "                            <input type=\"text\" ng-model=\"b.HostPath\" class=\"form-control input-sm\"\n" +
+    "                                   placeholder=\"Host path or volume name\" style=\"width: 250px;\" />\n" +
+    "                        </div>\n" +
+    "                        <div class=\"form-group\">\n" +
+    "                            <input type=\"text\" ng-model=\"b.ContPath\" ng-readonly=\"b.DefaultBind\" class=\"form-control input-sm\" placeholder=\"Container path\" />\n" +
+    "                        </div>\n" +
+    "                        <div class=\"form-group\">\n" +
+    "                            <label><input type=\"checkbox\" ng-model=\"b.ReadOnly\" /> read only</label>\n" +
+    "                        </div>\n" +
+    "                        <div class=\"form-group\">\n" +
+    "                            <button class=\"btn btn-danger btn-sm input-sm form-control\"\n" +
+    "                                    ng-click=\"rmEntry(newCfg.Binds, b)\"><i class=\"glyphicon glyphicon-remove\"></i>\n" +
+    "                            </button>\n" +
+    "                        </div>\n" +
+    "                    </div>\n" +
+    "                    <button type=\"button\" class=\"btn btn-success btn-sm\"\n" +
+    "                            ng-click=\"addEntry(newCfg.Binds, { ContPath: '', HostPath: '', ReadOnly: false, DefaultBind: false })\"><i class=\"glyphicon glyphicon-plus\"></i> Add\n" +
+    "                    </button>\n" +
+    "                    <button class=\"btn btn-primary btn-sm\"\n" +
+    "                            ng-click=\"restartEnv()\"\n" +
+    "                            ng-show=\"!container.State.Restarting\">Commit and restart</button>\n" +
+    "\n" +
+    "                </div>\n" +
+    "            </td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
     "            <td>Galaxy Server:</td>\n" +
     "            <td id=\"galaxy_server_info\">\n" +
     "                <li ng-repeat=\"(containerport, hostports) in container.HostConfig.PortBindings\">\n" +
-    "                    <h4><span class=\"label label-primary\" ng-repeat=\"(k,v) in hostports\"><a href=\"http://{{ v.HostIp }}:{{ v.HostPort }}/history/view_multiple\" target=\"_blank\" style=\"color: white\">{{ v.HostIp }}:{{ v.HostPort }}</a></span></h4>\n" +
+    "                    <h4><span class=\"label label-primary\" ng-repeat=\"(k,v) in hostports\"><a href=\"http://{{ v.HostIp }}:{{ v.HostPort }}\" target=\"_blank\" style=\"color: white\">{{ v.HostIp }}:{{ v.HostPort }}</a></span></h4>\n" +
     "                </li>\n" +
     "            </td>\n" +
     "        </tr>\n" +
@@ -2665,6 +2750,7 @@ angular.module("app/components/container/container.html", []).run(["$templateCac
     "            </td>\n" +
     "        </tr>\n" +
     "</div>\n" +
+    "\n" +
     "\n" +
     "");
 }]);
@@ -2688,7 +2774,7 @@ angular.module("app/components/containerLogs/containerlogs.html", []).run(["$tem
     "            </div>\n" +
     "            <div class=\"col-xs-4\">\n" +
     "                <input id=\"timestampToggle\" type=\"checkbox\" ng-model=\"showTimestamps\"\n" +
-    "                       ng-change=\"toggleTimestamps()\" checked/> <label for=\"timestampToggle\">Timestamps</label>\n" +
+    "                       ng-change=\"toggleTimestamps()\"/> <label for=\"timestampToggle\">Timestamps</label>\n" +
     "            </div>\n" +
     "        </div>\n" +
     "    </div>\n" +
@@ -2714,37 +2800,46 @@ angular.module("app/components/containerLogs/containerlogs.html", []).run(["$tem
     "        </div>\n" +
     "    </div>\n" +
     "</div>\n" +
-    "\n" +
     "");
 }]);
 
 angular.module("app/components/containerTop/containerTop.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("app/components/containerTop/containerTop.html",
     "<div class=\"containerTop\">\n" +
-    "    <div class=\"form-group col-xs-2\">\n" +
-    "        <input type=\"text\" class=\"form-control\" placeholder=\"[options] (aux)\" ng-model=\"ps_args\">\n" +
+    "    <div class=\"row\">\n" +
+    "        <div class=\"col-xs-12\">\n" +
+    "            <h1>Top for: {{ containerName }}</h1>\n" +
+    "        </div>\n" +
     "    </div>\n" +
-    "    <button type=\"button\" class=\"btn btn-default\" ng-click=\"getTop()\">Submit</button>\n" +
-    "\n" +
-    "    <table class=\"table table-striped\">\n" +
-    "        <thead>\n" +
-    "        <tr>\n" +
-    "            <th ng-repeat=\"title in containerTop.Titles\">{{title}}</th>\n" +
-    "        </tr>\n" +
-    "        </thead>\n" +
-    "        <tbody>\n" +
-    "        <tr ng-repeat=\"processInfos in containerTop.Processes\">\n" +
-    "            <td ng-repeat=\"processInfo in processInfos track by $index\">{{processInfo}}</td>\n" +
-    "        </tr>\n" +
-    "        </tbody>\n" +
-    "    </table>\n" +
+    "    <div class=\"row\">\n" +
+    "        <div class=\"form-group col-xs-2\">\n" +
+    "            <input type=\"text\" class=\"form-control\" placeholder=\"[options] (aux)\" ng-model=\"ps_args\">\n" +
+    "        </div>\n" +
+    "        <button type=\"button\" class=\"btn btn-default\" ng-click=\"getTop()\">Submit</button>\n" +
+    "    </div>\n" +
+    "    <div class=\"row\">\n" +
+    "        <div class=\"col-xs-12\">\n" +
+    "            <table class=\"table table-striped\">\n" +
+    "                <thead>\n" +
+    "                <tr>\n" +
+    "                    <th ng-repeat=\"title in containerTop.Titles\">{{title}}</th>\n" +
+    "                </tr>\n" +
+    "                </thead>\n" +
+    "                <tbody>\n" +
+    "                <tr ng-repeat=\"processInfos in containerTop.Processes\">\n" +
+    "                    <td ng-repeat=\"processInfo in processInfos track by $index\">{{processInfo}}</td>\n" +
+    "                </tr>\n" +
+    "                </tbody>\n" +
+    "            </table>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
     "</div>");
 }]);
 
 angular.module("app/components/containers/containers.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("app/components/containers/containers.html",
     "\n" +
-    "<h2>Start new Pipelines</h2>\n" +
+    "<h2>Containers:</h2>\n" +
     "\n" +
     "<div>\n" +
     "    <ul class=\"nav nav-pills pull-left\">\n" +
@@ -2757,6 +2852,7 @@ angular.module("app/components/containers/containers.html", []).run(["$templateC
     "                <li><a tabindex=\"-1\" href=\"\" ng-click=\"killAction()\">Kill</a></li>\n" +
     "                <li><a tabindex=\"-1\" href=\"\" ng-click=\"pauseAction()\">Pause</a></li>\n" +
     "                <li><a tabindex=\"-1\" href=\"\" ng-click=\"unpauseAction()\">Unpause</a></li>\n" +
+    "                <li><a tabindex=\"-1\" href=\"\" ng-click=\"removeAction()\">Remove</a></li>\n" +
     "            </ul>\n" +
     "        </li>\n" +
     "    </ul>\n" +
@@ -2769,27 +2865,59 @@ angular.module("app/components/containers/containers.html", []).run(["$templateC
     "<table class=\"table table-striped\">\n" +
     "    <thead>\n" +
     "        <tr>\n" +
-    "            <th><input type=\"checkbox\" ng-model=\"toggle\" ng-change=\"toggleSelectAll()\" /> Additional Actions</th>\n" +
-    "            <th>Name</th>\n" +
-    "            <th>Pipeline (tag)</th>\n" +
-    "            <th>Command</th>\n" +
-    "            <th>Created</th>\n" +
-    "            <th>Status</th>\n" +
+    "            <th><label><input type=\"checkbox\" ng-model=\"toggle\" ng-change=\"toggleSelectAll()\" /> Select</label></th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/containers/\" ng-click=\"order('Names')\">\n" +
+    "                    Name\n" +
+    "                    <span ng-show=\"sortType == 'Names' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'Names' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/containers/\" ng-click=\"order('Image')\">\n" +
+    "                    Image\n" +
+    "                    <span ng-show=\"sortType == 'Image' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'Image' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/containers/\" ng-click=\"order('Command')\">\n" +
+    "                    Command\n" +
+    "                    <span ng-show=\"sortType == 'Command' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'Command' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/containers/\" ng-click=\"order('Created')\">\n" +
+    "                    Created\n" +
+    "                    <span ng-show=\"sortType == 'Created' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'Created' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/containers/\" ng-click=\"order('Status')\">\n" +
+    "                    Status\n" +
+    "                    <span ng-show=\"sortType == 'Status' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'Status' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
+    "            <th>\n" +
+    "                Log\n" +
+    "            </th>\n" +
     "        </tr>\n" +
     "    </thead>\n" +
     "    <tbody>\n" +
-    "        <tr ng-repeat=\"container in containers | filter:filter | orderBy:predicate\">\n" +
+    "        <tr ng-repeat=\"container in (filteredContainers = ( containers | filter:filter | orderBy:sortType:sortReverse))\">\n" +
     "            <td><input type=\"checkbox\" ng-model=\"container.Checked\" /></td>\n" +
-    "            <!--<td><a href=\"#/containers/{{ container.Id }}/\">{{ container|containername}}</a></td>-->\n" +
-    "            <td>{{ container|containername}}</td>\n" +
-    "            <td><a href=\"#/images/{{ container.Image }}/\">{{ container|tagnameOnly }}</a></td>\n" +
+    "            <td><a href=\"#/containers/{{ container.Id }}/\">{{ container|containername}}</a></td>\n" +
+    "            <td><a href=\"#/images/{{ container.Image }}/\">{{ container.Image }}</a></td>\n" +
     "            <td>{{ container.Command|truncate:40 }}</td>\n" +
-    "            <td>{{ container.Created|getdate }}</td>\n" +
+    "            <td>{{ container.Created * 1000 | date: 'yyyy-MM-dd' }}</td>\n" +
     "            <td><span class=\"label label-{{ container.Status|statusbadge }}\">{{ container.Status }}</span></td>\n" +
+    "            <td><a href=\"#/containers/{{ container.Id }}/logs\">stdout/stderr</a></td>\n" +
     "        </tr>\n" +
     "    </tbody>\n" +
     "</table>\n" +
-    "\n" +
     "");
 }]);
 
@@ -2926,6 +3054,7 @@ angular.module("app/components/dashboard/dashboard.html", []).run(["$templateCac
     "-->\n" +
     "</div>\n" +
     "\n" +
+    "\n" +
     "");
 }]);
 
@@ -2959,7 +3088,7 @@ angular.module("app/components/events/events.html", []).run(["$templateCache", f
     "                <td ng-bind=\"event.status\"/>\n" +
     "                <td ng-bind=\"event.from\"/>\n" +
     "                <td ng-bind=\"event.id\"/>\n" +
-    "                <td ng-bind=\"event.time * 1000 | date:'medium'\"/>\n" +
+    "                <td ng-bind=\"event.time * 1000 | date:'yyyy-MM-dd HH:mm:ss'\"/>\n" +
     "            </tr>\n" +
     "            </tbody>\n" +
     "        </table>\n" +
@@ -2970,16 +3099,24 @@ angular.module("app/components/events/events.html", []).run(["$templateCache", f
 
 angular.module("app/components/footer/statusbar.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("app/components/footer/statusbar.html",
-    "<footer class=\"center well\">\n" +
-    "    <!--\n" +
-    "    <p>\n" +
-    "        <small>Docker API Version: <strong>{{ apiVersion }}</strong> UI Version: <strong>{{ uiVersion }}</strong> <a\n" +
-    "                class=\"pull-right\" href=\"https://github.com/crosbymichael/dockerui\">dockerui</a></small>\n" +
-    "    </p>\n" +
-    "    -->\n" +
-    "</footer>\n" +
-    "\n" +
-    "");
+    "<div class=\"container\">\n" +
+    "	<div class=\"row\">\n" +
+    "		<div class=\"col-xs-12\">\n" +
+    "			<footer class=\"navbar navbar-default\">\n" +
+    "				<div class=\"container-fluid\">\n" +
+    "					<div class=\"navbar-collapse\">\n" +
+    "				        <ul class=\"nav navbar-nav\">\n" +
+    "				        	<li><a>Docker API Version: <strong>{{ apiVersion }}</strong> UI Version: <strong>{{ uiVersion }}</strong></a></li>\n" +
+    "				        </ul>\n" +
+    "				        <ul class=\"nav navbar-nav navbar-right\">\n" +
+    "				        	<li><a href=\"https://github.com/kevana/ui-for-docker\" target=\"_blank\">UI For Docker</a></li>\n" +
+    "				        </ul>\n" +
+    "					</div>\n" +
+    "				</div>\n" +
+    "			</footer>\n" +
+    "		</div>\n" +
+    "	</div>\n" +
+    "</div>");
 }]);
 
 angular.module("app/components/image/image.html", []).run(["$templateCache", function($templateCache) {
@@ -2992,19 +3129,15 @@ angular.module("app/components/image/image.html", []).run(["$templateCache", fun
     "\n" +
     "<div class=\"detail\">\n" +
     "\n" +
-    "    <h4>Tag: {{ image.ContainerConfig.Image }}</h4>\n" +
-    "    <h5>Pipeline ID: {{ id }}</h5>\n" +
-    "    <hr />\n" +
+    "    <h4>Image: {{ id }}</h4>\n" +
     "\n" +
     "    <div class=\"btn-group detail\">\n" +
-    "        <h5>Start new pipeline:</h5>\n" +
-    "        <button class=\"btn btn-success\" data-toggle=\"modal\" ng-click=\"open('simple')\">Simple</button>\n" +
-    "        <button class=\"btn btn-warning\" data-toggle=\"modal\" ng-click=\"open('advanced')\">Advanced</button>\n" +
+    "        <button class=\"btn btn-success\" data-toggle=\"modal\" data-target=\"#create-modal\">Start Container</button>\n" +
     "    </div>\n" +
     "\n" +
     "    <div>\n" +
-    "        <h4>The pipeline created:</h4>\n" +
-    "        <canvas id=\"containers-started-chart\">\n" +
+    "        <h4>Containers created:</h4>\n" +
+    "        <canvas id=\"containers-started-chart\" width=\"750\">\n" +
     "            <p class=\"browserupgrade\">You are using an <strong>outdated</strong> browser. Please <a\n" +
     "                    href=\"http://browsehappy.com/\">upgrade your browser</a> to improve your experience.</p>\n" +
     "        </canvas>\n" +
@@ -3022,8 +3155,9 @@ angular.module("app/components/image/image.html", []).run(["$templateCache", fun
     "                </ul>\n" +
     "            </td>\n" +
     "        </tr>\n" +
+    "        <tr>\n" +
     "            <td>Created:</td>\n" +
-    "            <td>{{ image.Created | date: 'medium'}}{{ image|getimage }}</td>\n" +
+    "            <td>{{ image.Created | date: 'yyyy-MM-dd HH:mm:ss'}}</td>\n" +
     "        </tr>\n" +
     "        <tr>\n" +
     "            <td>Parent:</td>\n" +
@@ -3062,7 +3196,6 @@ angular.module("app/components/image/image.html", []).run(["$templateCache", fun
     "        </tbody>\n" +
     "    </table>\n" +
     "\n" +
-    "<!--\n" +
     "    <div class=\"row-fluid\">\n" +
     "        <div class=\"span1\">\n" +
     "            History:\n" +
@@ -3075,18 +3208,18 @@ angular.module("app/components/image/image.html", []).run(["$templateCache", fun
     "    <div class=\"well well-large\">\n" +
     "        <ul>\n" +
     "            <li ng-repeat=\"change in history\">\n" +
-    "                <strong>{{ change.Id }}</strong>: Created: {{ change.Created|getdate }} Created by: {{ change.CreatedBy\n" +
+    "                <strong>{{ change.Id }}</strong>: Created: {{ change.Created | date: 'yyyy-MM-dd' }} Created by: {{ change.CreatedBy\n" +
     "                }}\n" +
     "            </li>\n" +
     "        </ul>\n" +
     "    </div>\n" +
-    "-->\n" +
     "\n" +
     "    <hr/>\n" +
+    "\n" +
     "    <div class=\"row-fluid\">\n" +
     "        <form class=\"form-inline\" role=\"form\">\n" +
     "            <fieldset>\n" +
-    "                <legend>Add a tag to the pipeline</legend>\n" +
+    "                <legend>Tag image</legend>\n" +
     "                <div class=\"form-group\">\n" +
     "                    <label>Tag:</label>\n" +
     "                    <input type=\"text\" placeholder=\"repo\" ng-model=\"tagInfo.repo\" class=\"form-control\">\n" +
@@ -3103,12 +3236,11 @@ angular.module("app/components/image/image.html", []).run(["$templateCache", fun
     "    </div>\n" +
     "\n" +
     "    <hr/>\n" +
+    "\n" +
     "    <div class=\"btn-remove\">\n" +
     "        <button class=\"btn btn-large btn-block btn-primary btn-danger\" ng-click=\"removeImage(id)\">Remove Image</button>\n" +
     "    </div>\n" +
-    "\n" +
     "</div>\n" +
-    "\n" +
     "");
 }]);
 
@@ -3117,7 +3249,7 @@ angular.module("app/components/images/images.html", []).run(["$templateCache", f
     "<div ng-include=\"template\" ng-controller=\"BuilderController\"></div>\n" +
     "<div ng-include=\"template\" ng-controller=\"PullImageController\"></div>\n" +
     "\n" +
-    "<h2>Images</h2>\n" +
+    "<h2>Images:</h2>\n" +
     "\n" +
     "<div>\n" +
     "    <ul class=\"nav nav-pills pull-left\">\n" +
@@ -3137,26 +3269,47 @@ angular.module("app/components/images/images.html", []).run(["$templateCache", f
     "<table class=\"table table-striped\">\n" +
     "    <thead>\n" +
     "        <tr>\n" +
-    "            <th><input type=\"checkbox\" ng-model=\"toggle\" ng-change=\"toggleSelectAll()\" /> Action</th>\n" +
-    "            <th>Id</th>\n" +
-    "            <th>Repository</th>\n" +
-    "            <th>Pipeline</th>\n" +
-    "            <th>VirtualSize</th>\n" +
-    "            <th>Created</th>\n" +
+    "            <th><label><input type=\"checkbox\" ng-model=\"toggle\" ng-change=\"toggleSelectAll()\" /> Select</label></th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/images/\" ng-click=\"order('Id')\">\n" +
+    "                    Id\n" +
+    "                    <span ng-show=\"sortType == 'Id' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'Id' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/images/\" ng-click=\"order('RepoTags')\">\n" +
+    "                    Repository\n" +
+    "                    <span ng-show=\"sortType == 'RepoTags' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'RepoTags' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/images/\" ng-click=\"order('VirtualSize')\">\n" +
+    "                    VirtualSize\n" +
+    "                    <span ng-show=\"sortType == 'VirtualSize' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'VirtualSize' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
+    "            <th>\n" +
+    "                <a href=\"#/images/\" ng-click=\"order('Created')\">\n" +
+    "                    Created\n" +
+    "                    <span ng-show=\"sortType == 'Created' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                    <span ng-show=\"sortType == 'Created' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "                </a>\n" +
+    "            </th>\n" +
     "        </tr>\n" +
     "    </thead>\n" +
     "    <tbody>\n" +
-    "        <tr ng-repeat=\"image in images | filter:filter | orderBy:predicate\">\n" +
+    "        <tr ng-repeat=\"image in (filteredImages = (images | filter:filter | orderBy:sortType:sortReverse))\">\n" +
     "            <td><input type=\"checkbox\" ng-model=\"image.Checked\" /></td>\n" +
     "            <td><a href=\"#/images/{{ image.Id }}/?tag={{ image|repotag }}\">{{ image.Id|truncate:20}}</a></td>\n" +
-    "            <td>{{ image|reponameOnly }}</td>\n" +
-    "            <td>{{ image|tagnameOnly }}</td>\n" +
+    "            <td>{{ image|repotag }}</td>\n" +
     "            <td>{{ image.VirtualSize|humansize }}</td>\n" +
-    "            <td>{{ image.Created|getdate }}</td>\n" +
+    "            <td>{{ image.Created * 1000 | date: 'yyyy-MM-dd' }}</td>\n" +
     "        </tr>\n" +
     "    </tbody>\n" +
     "</table>\n" +
-    "\n" +
     "");
 }]);
 
@@ -3281,17 +3434,249 @@ angular.module("app/components/masthead/masthead.html", []).run(["$templateCache
     "    <a href=\"#/\"><h3 class=\"text-muted\">BioIt Core</h3></a>\n" +
     "    <ul class=\"nav well\">\n" +
     "        <li><a href=\"#/\" style=\"font-size: 18px\"><img src=\"ico/dashboard.png\" style=\"width: 25px; height: 25px\"></img> Dashboard</a></li>\n" +
-    "        <!--<li><a href=\"#/containers_network/\">Pipelines Network</a></li>\n" +
-    "        <li><a href=\"#/containers_network/\">Containers Network</a></li>-->\n" +
-    "        <!--\n" +
-    "        <li><a href=\"#/containers/\">Start new Pipelines</a></li>\n" +
-    "        <li><a href=\"#/images/\">Admin</a></li>\n" +
-    "        <li><a href=\"#/info/\">Info</a></li>\n" +
-    "    	-->\n" +
     "    </ul>\n" +
     "</div>\n" +
     "\n" +
     "");
+}]);
+
+angular.module("app/components/network/network.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("app/components/network/network.html",
+    "<div class=\"detail\">\n" +
+    "\n" +
+    "    <h4>Network: {{ network.Name }}</h4>\n" +
+    "\n" +
+    "    <table class=\"table table-striped\">\n" +
+    "        <tbody>\n" +
+    "        <tr>\n" +
+    "            <td>Name:</td>\n" +
+    "            <td>{{ network.Name }}</td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>Id:</td>\n" +
+    "            <td>{{ network.Id }}</td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>Scope:</td>\n" +
+    "            <td>{{ network.Scope }}</td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>Driver:</td>\n" +
+    "            <td>{{ network.Driver }}</td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>IPAM:</td>\n" +
+    "            <td>\n" +
+    "                <table class=\"table table-striped\">\n" +
+    "                    <tr>\n" +
+    "                        <td>Driver:</td>\n" +
+    "                        <td>{{ network.IPAM.Driver }}</td>\n" +
+    "                    </tr>\n" +
+    "                    <tr>\n" +
+    "                        <td>Subnet:</td>\n" +
+    "                        <td>{{ network.IPAM.Config[0].Subnet }}</td>\n" +
+    "                    </tr>\n" +
+    "                    <tr>\n" +
+    "                        <td>Gateway:</td>\n" +
+    "                        <td>{{ network.IPAM.Config[0].Gateway }}</td>\n" +
+    "                    </tr>\n" +
+    "                </table>\n" +
+    "            </td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>Containers:</td>\n" +
+    "            <td>\n" +
+    "                <table class=\"table table-striped\" ng-repeat=\"(Id, container) in network.Containers\">\n" +
+    "                    <tr>\n" +
+    "                        <td>Id:</td>\n" +
+    "                        <td><a href=\"#/containers/{{ Id }}\">{{ Id }}</a></td>\n" +
+    "                        <td>\n" +
+    "                            <button ng-click=\"disconnect(network.Id, Id)\" class=\"btn btn-danger btn-sm\">\n" +
+    "                                Disconnect from network\n" +
+    "                            </button>\n" +
+    "                        </td>\n" +
+    "                    </tr>\n" +
+    "                    <tr>\n" +
+    "                        <td>EndpointID:</td>\n" +
+    "                        <td>{{ container.EndpointID}}</td>\n" +
+    "                    </tr>\n" +
+    "                    <tr>\n" +
+    "                        <td>MacAddress:</td>\n" +
+    "                        <td>{{ container.MacAddress}}</td>\n" +
+    "                    </tr>\n" +
+    "                    <tr>\n" +
+    "                        <td>IPv4Address:</td>\n" +
+    "                        <td>{{ container.IPv4Address}}</td>\n" +
+    "                    </tr>\n" +
+    "                    <tr>\n" +
+    "                        <td>IPv6Address:</td>\n" +
+    "                        <td>{{ container.IPv6Address}}</td>\n" +
+    "                    </tr>\n" +
+    "                </table>\n" +
+    "                <form class=\"form-inline\">\n" +
+    "                    <div class=\"form-group\">\n" +
+    "                        <label>Container ID:\n" +
+    "                            <input ng-model=\"containerId\" placeholder=\"3613f73ba0e4\" class=\"form-control\">\n" +
+    "                        </label>\n" +
+    "                    </div>\n" +
+    "                    <button ng-click=\"connect(network.Id, containerId)\" class=\"btn btn-primary\">\n" +
+    "                        Connect\n" +
+    "                    </button>\n" +
+    "                </form>\n" +
+    "            </td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>Options:</td>\n" +
+    "            <td>\n" +
+    "                <table role=\"table\" class=\"table table-striped\">\n" +
+    "                    <tr>\n" +
+    "                        <th>Key</th>\n" +
+    "                        <th>Value</th>\n" +
+    "                    </tr>\n" +
+    "                    <tr ng-repeat=\"(k, v) in network.Options\">\n" +
+    "                        <td>{{ k }}</td>\n" +
+    "                        <td>{{ v }}</td>\n" +
+    "                    </tr>\n" +
+    "                </table>\n" +
+    "            </td>\n" +
+    "        </tr>\n" +
+    "        </tbody>\n" +
+    "    </table>\n" +
+    "\n" +
+    "\n" +
+    "    <hr/>\n" +
+    "\n" +
+    "\n" +
+    "    <div class=\"btn-remove\">\n" +
+    "        <button class=\"btn btn-large btn-block btn-primary btn-danger\" ng-click=\"removeImage(id)\">Remove Network\n" +
+    "        </button>\n" +
+    "    </div>\n" +
+    "</div>");
+}]);
+
+angular.module("app/components/networks/networks.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("app/components/networks/networks.html",
+    "<h2>Networks:</h2>\n" +
+    "\n" +
+    "<div>\n" +
+    "    <ul class=\"nav nav-pills pull-left\">\n" +
+    "        <li class=\"dropdown\">\n" +
+    "            <a class=\"dropdown-toggle\" id=\"drop4\" role=\"button\" data-toggle=\"dropdown\" data-target=\"#\">Actions <b\n" +
+    "                    class=\"caret\"></b></a>\n" +
+    "            <ul id=\"menu1\" class=\"dropdown-menu\" role=\"menu\" aria-labelledby=\"drop4\">\n" +
+    "                <li><a tabindex=\"-1\" href=\"\" ng-click=\"removeAction()\">Remove</a></li>\n" +
+    "            </ul>\n" +
+    "        </li>\n" +
+    "    </ul>\n" +
+    "\n" +
+    "    <div class=\"pull-right form-inline\">\n" +
+    "        <input type=\"text\" class=\"form-control\" id=\"filter\" placeholder=\"Filter\" ng-model=\"filter\"/> <label\n" +
+    "            class=\"sr-only\" for=\"filter\">Filter</label>\n" +
+    "    </div>\n" +
+    "</div>\n" +
+    "<table class=\"table table-striped\">\n" +
+    "    <thead>\n" +
+    "    <tr>\n" +
+    "        <th><label><input type=\"checkbox\" ng-model=\"toggle\" ng-change=\"toggleSelectAll()\"/> Select</label></th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/networks/\" ng-click=\"order('Name')\">\n" +
+    "                Name\n" +
+    "                <span ng-show=\"sortType == 'Name' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'Name' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/networks/\" ng-click=\"order('Id')\">\n" +
+    "                Id\n" +
+    "                <span ng-show=\"sortType == 'Id' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'Id' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/networks/\" ng-click=\"order('Scope')\">\n" +
+    "                Scope\n" +
+    "                <span ng-show=\"sortType == 'Scope' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'Scope' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/networks/\" ng-click=\"order('Driver')\">\n" +
+    "                Driver\n" +
+    "                <span ng-show=\"sortType == 'Driver' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'Driver' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/networks/\" ng-click=\"order('IPAM.Driver')\">\n" +
+    "                IPAM Driver\n" +
+    "                <span ng-show=\"sortType == 'IPAM.Driver' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'IPAM.Driver' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/networks/\" ng-click=\"order('IPAM.Config[0].Subnet')\">\n" +
+    "                IPAM Subnet\n" +
+    "                <span ng-show=\"sortType == 'IPAM.Config[0].Subnet' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'IPAM.Config[0].Subnet' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/networks/\" ng-click=\"order('IPAM.Config[0].Gateway')\">\n" +
+    "                IPAM Gateway\n" +
+    "                <span ng-show=\"sortType == 'IPAM.Config[0].Gateway' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'IPAM.Config[0].Gateway' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "    </tr>\n" +
+    "    </thead>\n" +
+    "    <tbody>\n" +
+    "    <tr ng-repeat=\"network in ( filteredNetworks = (networks | filter:filter | orderBy:sortType:sortReverse))\">\n" +
+    "        <td><input type=\"checkbox\" ng-model=\"network.Checked\"/></td>\n" +
+    "        <td><a href=\"#/networks/{{ network.Id }}/\">{{ network.Name|truncate:20}}</a></td>\n" +
+    "        <td>{{ network.Id }}</td>\n" +
+    "        <td>{{ network.Scope }}</td>\n" +
+    "        <td>{{ network.Driver }}</td>\n" +
+    "        <td>{{ network.IPAM.Driver }}</td>\n" +
+    "        <td>{{ network.IPAM.Config[0].Subnet }}</td>\n" +
+    "        <td>{{ network.IPAM.Config[0].Gateway }}</td>\n" +
+    "    </tr>\n" +
+    "    </tbody>\n" +
+    "</table>\n" +
+    "<div class=\"row\">\n" +
+    "    <div class=\"col-xs-offset-3 col-xs-6\">\n" +
+    "        <form role=\"form\" class=\"\">\n" +
+    "            <div class=\"form-group\">\n" +
+    "                <label>Name:</label>\n" +
+    "                <input type=\"text\" placeholder='isolated_nw'\n" +
+    "                       ng-model=\"createNetworkConfig.Name\" class=\"form-control\"/>\n" +
+    "            </div>\n" +
+    "            <div class=\"form-group\">\n" +
+    "                <label>Driver:</label>\n" +
+    "                <input type=\"text\" placeholder='bridge'\n" +
+    "                       ng-model=\"createNetworkConfig.Driver\" class=\"form-control\"/>\n" +
+    "            </div>\n" +
+    "            <div class=\"form-group\">\n" +
+    "                <label>Subnet:</label>\n" +
+    "                <input type=\"text\" placeholder='172.20.0.0/16'\n" +
+    "                       ng-model=\"createNetworkConfig.IPAM.Config[0].Subnet\" class=\"form-control\"/>\n" +
+    "            </div>\n" +
+    "            <div class=\"form-group\">\n" +
+    "                <label>IPRange:</label>\n" +
+    "                <input type=\"text\" placeholder='172.20.10.0/24'\n" +
+    "                       ng-model=\"createNetworkConfig.IPAM.Config[0].IPRange\" class=\"form-control\"/>\n" +
+    "            </div>\n" +
+    "            <div class=\"form-group\">\n" +
+    "                <label>Gateway:</label>\n" +
+    "                <input type=\"text\" placeholder='172.20.10.11'\n" +
+    "                       ng-model=\"createNetworkConfig.IPAM.Config[0].Gateway\" class=\"form-control\"/>\n" +
+    "            </div>\n" +
+    "            <button type=\"button\" class=\"btn btn-success btn-sm\"\n" +
+    "                    ng-click=\"addNetwork(createNetworkConfig)\">\n" +
+    "                Create Network\n" +
+    "            </button>\n" +
+    "        </form>\n" +
+    "    </div>\n" +
+    "</div>");
 }]);
 
 angular.module("app/components/pullImage/pullImage.html", []).run(["$templateCache", function($templateCache) {
@@ -3305,19 +3690,10 @@ angular.module("app/components/pullImage/pullImage.html", []).run(["$templateCac
     "            </div>\n" +
     "            <div class=\"modal-body\">\n" +
     "                <form novalidate role=\"form\" name=\"pullForm\">\n" +
-    "                    <!--<div class=\"input-group\">\n" +
-    "                        <span class=\"input-group-addon\" id=\"basic-addon1\">Image name</span>\n" +
-    "                        <input type=\"text\" class=\"form-control\" placeholder=\"imageName\" aria-describedby=\"basic-addon1\">\n" +
-    "                    </div>-->\n" +
     "                    <div class=\"form-group\">\n" +
     "                        <label>Registry:</label>\n" +
     "                        <input type=\"text\" ng-model=\"config.registry\" class=\"form-control\"\n" +
     "                               placeholder=\"Registry. Leave empty to user docker hub\"/>\n" +
-    "                    </div>\n" +
-    "                    <div class=\"form-group\">\n" +
-    "                        <label>Repo:</label>\n" +
-    "                        <input type=\"text\" ng-model=\"config.repo\" class=\"form-control\"\n" +
-    "                               placeholder=\"Repository - usually your username.\"/>\n" +
     "                    </div>\n" +
     "                    <div class=\"form-group\">\n" +
     "                        <label>Image Name:</label>\n" +
@@ -3361,7 +3737,7 @@ angular.module("app/components/sidebar/sidebar.html", []).run(["$templateCache",
 
 angular.module("app/components/startContainer/startcontainer.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("app/components/startContainer/startcontainer.html",
-    "<div id=\"create-modal\">\n" +
+    "<div id=\"create-modal\" class=\"modal fade\">\n" +
     "    <div class=\"modal-dialog\">\n" +
     "        <div class=\"modal-content\">\n" +
     "            <div class=\"modal-header\">\n" +
@@ -3369,7 +3745,7 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                <h3>Create And Start Container From Image</h3>\n" +
     "            </div>\n" +
     "            <div class=\"modal-body\">\n" +
-    "                <form name=\"container_info\" role=\"form\">\n" +
+    "                <form role=\"form\">\n" +
     "                    <accordion close-others=\"true\">\n" +
     "                        <accordion-group heading=\"Container options\" is-open=\"menuStatus.containerOpen\">\n" +
     "                            <fieldset>\n" +
@@ -3377,40 +3753,34 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                                    <div class=\"col-xs-6\">\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>Cmd:</label>\n" +
-    "                                            <input type=\"text\" id=\"input_cmd\" name=\"cmd\" ng-model=\"config.Cmd\" class=\"form-control\" required/>\n" +
-    "                                            <span ng-show=\"container_info.cmd.$error.required\" class=\"req_err err\">\n" +
-    "                                                Required</span>\n" +
+    "                                            <input type=\"text\" placeholder='[\"/bin/echo\", \"Hello world\"]'\n" +
+    "                                                   ng-model=\"config.Cmd\" class=\"form-control\"/>\n" +
     "                                            <small>Input commands as a raw string or JSON array</small>\n" +
     "                                        </div>\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>Entrypoint:</label>\n" +
-    "                                            <input type=\"text\" id=\"input_entrypoint\" ng-model=\"config.Entrypoint\" class=\"form-control\"/>\n" +
+    "                                            <input type=\"text\" ng-model=\"config.Entrypoint\" class=\"form-control\"\n" +
+    "                                                   placeholder=\"./entrypoint.sh\"/>\n" +
     "                                        </div>\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>Name:</label>\n" +
-    "                                            <input type=\"text\" id=\"input_name\" name=\"name\" ng-model=\"config.name\" class=\"form-control\" required ng-minlength=\"5\"/>\n" +
-    "                                            <span ng-show=\"container_info.name.$error.required\" class=\"req_err err\">\n" +
-    "                                                Required</span>\n" +
-    "                                            <span ng-show=\"container_info.name.$error.minlength\" id=\"name_min_err\" class=\"err\">\n" +
-    "                                                Minimum 5 characters</span>\n" +
+    "                                            <input type=\"text\" ng-model=\"config.name\" class=\"form-control\"/>\n" +
     "                                        </div>\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>Hostname:</label>\n" +
-    "                                            <input type=\"text\" id=\"input_hostname\" name=\"hostname\" ng-model=\"config.Hostname\" class=\"form-control\" required/>\n" +
-    "                                            <span ng-show=\"container_info.hostname.$error.required\" class=\"req_err err\">\n" +
-    "                                                Required</span>\n" +
+    "                                            <input type=\"text\" ng-model=\"config.Hostname\" class=\"form-control\"/>\n" +
     "                                        </div>\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>Domainname:</label>\n" +
-    "                                            <input type=\"text\" id=\"input_domainname\" ng-model=\"config.Domainname\" class=\"form-control\"/>\n" +
+    "                                            <input type=\"text\" ng-model=\"config.Domainname\" class=\"form-control\"/>\n" +
     "                                        </div>\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>User:</label>\n" +
-    "                                            <input type=\"text\" id=\"input_user\" ng-model=\"config.User\" class=\"form-control\"/>\n" +
+    "                                            <input type=\"text\" ng-model=\"config.User\" class=\"form-control\"/>\n" +
     "                                        </div>\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>Memory:</label>\n" +
-    "                                            <input type=\"number\" id=\"input_memory\" ng-model=\"config.Memory\" class=\"form-control\"/>\n" +
+    "                                            <input type=\"number\" ng-model=\"config.Memory\" class=\"form-control\"/>\n" +
     "                                        </div>\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>Volumes:</label>\n" +
@@ -3517,6 +3887,32 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                                        variable\n" +
     "                                    </button>\n" +
     "                                </div>\n" +
+    "                                <div class=\"form-group\">\n" +
+    "                                    <label>Labels:</label>\n" +
+    "\n" +
+    "                                    <div ng-repeat=\"label in config.Labels\">\n" +
+    "                                        <div class=\"form-group form-inline\">\n" +
+    "                                            <div class=\"form-group\">\n" +
+    "                                                <label class=\"sr-only\">Key:</label>\n" +
+    "                                                <input type=\"text\" ng-model=\"label.key\" class=\"form-control\"\n" +
+    "                                                       placeholder=\"key\"/>\n" +
+    "                                            </div>\n" +
+    "                                            <div class=\"form-group\">\n" +
+    "                                                <label class=\"sr-only\">Value:</label>\n" +
+    "                                                <input type=\"text\" ng-model=\"label.value\" class=\"form-control\"\n" +
+    "                                                       placeholder=\"value\"/>\n" +
+    "                                            </div>\n" +
+    "                                            <div class=\"form-group\">\n" +
+    "                                                <button class=\"btn btn-danger btn-xs form-control\"\n" +
+    "                                                        ng-click=\"rmEntry(config.Labels, label)\">Remove\n" +
+    "                                                </button>\n" +
+    "                                            </div>\n" +
+    "                                        </div>\n" +
+    "                                    </div>\n" +
+    "                                    <button type=\"button\" class=\"btn btn-success btn-sm\"\n" +
+    "                                            ng-click=\"addEntry(config.Labels, {key: '', value: ''})\">Add Label\n" +
+    "                                    </button>\n" +
+    "                                </div>\n" +
     "                            </fieldset>\n" +
     "                        </accordion-group>\n" +
     "                        <accordion-group heading=\"HostConfig options\" is-open=\"menuStatus.hostConfigOpen\">\n" +
@@ -3524,17 +3920,18 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                                <div class=\"row\">\n" +
     "                                    <div class=\"col-xs-6\">\n" +
     "                                        <div class=\"form-group\">\n" +
-    "                                            <label>MountDatabase:</label>\n" +
-    "                                            <div ng-repeat=\"bind in config.HostConfig.Binds\">   \n" +
+    "                                            <label>Binds:</label>\n" +
+    "\n" +
+    "                                            <div ng-repeat=\"bind in config.HostConfig.Binds\">\n" +
     "                                                <div class=\"form-group form-inline\">\n" +
-    "                                                    <input type=\"text\" id=\"input_bind\" name=\"bind\" ng-model=\"bind.name\" class=\"form-control\" placeholder=\"/host:/container\" required/>\n" +
-    "                                                    <span ng-show=\"container_info.bind.$error.required\" class=\"req_err err\">Required</span>\n" +
+    "                                                    <input type=\"text\" ng-model=\"bind.name\" class=\"form-control\"\n" +
+    "                                                           placeholder=\"/host:/container\"/>\n" +
     "                                                    <button type=\"button\" class=\"btn btn-danger btn-sm\"\n" +
     "                                                            ng-click=\"rmEntry(config.HostConfig.Binds, bind)\">Remove\n" +
     "                                                    </button>\n" +
     "                                                </div>\n" +
     "                                            </div>\n" +
-    "                                            <button type=\"button\" id=\"addBind_btn\" class=\"btn btn-success btn-sm\"\n" +
+    "                                            <button type=\"button\" class=\"btn btn-success btn-sm\"\n" +
     "                                                    ng-click=\"addEntry(config.HostConfig.Binds, {name: ''})\">Add Bind\n" +
     "                                            </button>\n" +
     "                                        </div>\n" +
@@ -3624,7 +4021,7 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                                    <div class=\"col-xs-6\">\n" +
     "                                        <div class=\"form-group\">\n" +
     "                                            <label>NetworkMode:</label>\n" +
-    "                                            <input type=\"text\" id=\"input_networkmode\" ng-model=\"config.HostConfig.NetworkMode\"\n" +
+    "                                            <input type=\"text\" ng-model=\"config.HostConfig.NetworkMode\"\n" +
     "                                                   class=\"form-control\" placeholder=\"bridge\"/>\n" +
     "                                        </div>\n" +
     "                                        <div class=\"form-group\">\n" +
@@ -3644,7 +4041,7 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                                                <div class=\"form-group form-inline\">\n" +
     "                                                    <select ng-model=\"volume.name\"\n" +
     "                                                            ng-options=\"name for name in containerNames track by name\"\n" +
-    "                                                            class=\"form-control\"/>\n" +
+    "                                                            class=\"form-control\">\n" +
     "                                                    </select>\n" +
     "                                                    <button class=\"btn btn-danger btn-xs form-control\"\n" +
     "                                                            ng-click=\"rmEntry(config.HostConfig.VolumesFrom, volume)\">\n" +
@@ -3754,33 +4151,16 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                                    <label>PortBindings:</label>\n" +
     "\n" +
     "                                    <div ng-repeat=\"portBinding in config.HostConfig.PortBindings\">\n" +
-    "                                        <div class=\"form-group form-inline inline-portbinding\">\n" +
-    "                                            <div class=\"row\">\n" +
-    "                                                <div class=\"col-xs-4\" style=\"padding-right:0px;\">\n" +
-    "                                                <label class=\"portbinding-label\">Host IP:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_hostIP\" name=\"hostIP\" ng-model=\"portBinding.ip\" class=\"form-control\" required/>\n" +
-    "                                            <br />\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.hostIP.$error.required\" class=\"req_err err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                                <div class=\"col-xs-4\">\n" +
-    "                                                <label class=\"portbinding-label\">Host Port:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_hostport\" name=\"hostPort\" ng-model=\"portBinding.extPort\" class=\"form-control\" required/>\n" +
-    "                                            <br />\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.hostPort.$error.required\" id=\"req_err_hostport\" class=\"err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                                <div class=\"col-xs-4\">\n" +
-    "                                                <label class=\"portbinding-label\">Container port:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_containerport\" name=\"containerPort\" ng-model=\"portBinding.intPort\" class=\"form-control\" required/>\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.containerPort.$error.required\" class=\"req_err err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                            </div>\n" +
-    "                                            <br />\n" +
+    "                                        <div class=\"form-group form-inline inline-four\">\n" +
+    "                                            <label class=\"sr-only\">Host IP:</label>\n" +
+    "                                            <input type=\"text\" ng-model=\"portBinding.ip\" class=\"form-control\"\n" +
+    "                                                   placeholder=\"Host IP Address\"/>\n" +
+    "                                            <label class=\"sr-only\">Host Port:</label>\n" +
+    "                                            <input type=\"text\" ng-model=\"portBinding.extPort\" class=\"form-control\"\n" +
+    "                                                   placeholder=\"Host Port\"/>\n" +
+    "                                            <label class=\"sr-only\">Container port:</label>\n" +
+    "                                            <input type=\"text\" ng-model=\"portBinding.intPort\" class=\"form-control\"\n" +
+    "                                                   placeholder=\"Container Port\"/>\n" +
     "                                            <select ng-model=\"portBinding.protocol\">\n" +
     "                                                <option value=\"\">tcp</option>\n" +
     "                                                <option value=\"udp\">udp</option>\n" +
@@ -3791,7 +4171,7 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                                            </button>\n" +
     "                                        </div>\n" +
     "                                    </div>\n" +
-    "                                    <button type=\"button\" id=\"addPort_btn\" class=\"btn btn-success btn-sm\"\n" +
+    "                                    <button type=\"button\" class=\"btn btn-success btn-sm\"\n" +
     "                                            ng-click=\"addEntry(config.HostConfig.PortBindings, {ip: '', extPort: '', intPort: ''})\">\n" +
     "                                        Add Port Binding\n" +
     "                                    </button>\n" +
@@ -3801,242 +4181,12 @@ angular.module("app/components/startContainer/startcontainer.html", []).run(["$t
     "                    </accordion>\n" +
     "                </form>\n" +
     "            </div>\n" +
-    "            <div class=\"modal-footer\">            \n" +
-    "                <a href=\"\" class=\"btn btn-primary btn-lg\" ng-click=\"preset()\">Preset</a>\n" +
-    "                <a href=\"\" class=\"btn btn-success btn-lg\" ng-click=\"create()\">Create</a>\n" +
+    "            <div class=\"modal-footer\">\n" +
+    "                <a href=\"\" class=\"btn btn-primary btn-lg\" ng-click=\"create()\">Create</a>\n" +
     "            </div>\n" +
     "        </div>\n" +
     "    </div>\n" +
     "</div>\n" +
-    "\n" +
-    "");
-}]);
-
-angular.module("app/components/startContainer/startcontainer2.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("app/components/startContainer/startcontainer2.html",
-    "<div id=\"create-modal\">\n" +
-    "    <div class=\"modal-dialog\">\n" +
-    "        <div class=\"modal-content\">\n" +
-    "            <div class=\"modal-header\">\n" +
-    "                <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-hidden=\"true\">&times;</button>\n" +
-    "                <h3>Create And Start Container From Image</h3>\n" +
-    "            </div>\n" +
-    "            <div class=\"modal-body\">\n" +
-    "                <form name=\"container_info\" role=\"form\">\n" +
-    "                    <fieldset>\n" +
-    "                        <div class=\"row\">\n" +
-    "                            <div class=\"col-xs-12\">\n" +
-    "                                <div class=\"form-group\">\n" +
-    "                                    <label>Cmd:</label>\n" +
-    "                                    <input type=\"text\" id=\"input_cmd\" name=\"cmd\" ng-model=\"config.Cmd\" class=\"form-control\" required/>\n" +
-    "                                    <span ng-show=\"container_info.cmd.$error.required\" class=\"req_err err\">\n" +
-    "                                        Required</span>\n" +
-    "                                    <small>Input commands as a raw string or JSON array</small>\n" +
-    "                                </div>\n" +
-    "                                <div class=\"form-group\">\n" +
-    "                                    <label>Name:</label>\n" +
-    "                                    <input type=\"text\" id=\"input_name\" name=\"name\" ng-model=\"config.name\" class=\"form-control\" required ng-minlength=\"5\"/>\n" +
-    "                                    <span ng-show=\"container_info.name.$error.required\" class=\"req_err err\">\n" +
-    "                                        Required</span>\n" +
-    "                                    <span ng-show=\"container_info.name.$error.minlength\" id=\"name_min_err\" class=\"err\">\n" +
-    "                                        Minimum 5 characters</span>\n" +
-    "                                </div>\n" +
-    "                                <div class=\"form-group\">\n" +
-    "                                    <label>Hostname:</label>\n" +
-    "                                    <input type=\"text\" id=\"input_hostname\" name=\"hostname\" ng-model=\"config.Hostname\" class=\"form-control\" required/>\n" +
-    "                                    <span ng-show=\"container_info.hostname.$error.required\" class=\"req_err err\">\n" +
-    "                                        Required</span>\n" +
-    "                                </div>\n" +
-    "                            </div>\n" +
-    "                        </div>\n" +
-    "                        <hr>\n" +
-    "                        <div class=\"col-xs-12\">\n" +
-    "                            <div class=\"form-group\">\n" +
-    "                                <label>MountDatabase:</label>\n" +
-    "                                <div ng-repeat=\"bind in config.HostConfig.Binds\">   \n" +
-    "                                    <div class=\"form-group form-inline\">\n" +
-    "                                        <input type=\"text\" id=\"input_bind\" name=\"bind\" ng-model=\"bind.name\" class=\"form-control\" placeholder=\"/host:/container\" required/>\n" +
-    "                                        <span ng-show=\"container_info.bind.$error.required\" class=\"req_err err\">Required</span>\n" +
-    "                                        <button type=\"button\" class=\"btn btn-danger btn-sm\"\n" +
-    "                                                ng-click=\"rmEntry(config.HostConfig.Binds, bind)\">Remove\n" +
-    "                                        </button>\n" +
-    "                                    </div>\n" +
-    "                                </div>\n" +
-    "                                <button type=\"button\" id=\"addBind_btn\" class=\"btn btn-success btn-sm\"\n" +
-    "                                        ng-click=\"addEntry(config.HostConfig.Binds, {name: ''})\">Add Bind\n" +
-    "                                </button>\n" +
-    "                            </div>\n" +
-    "                            <div class=\"form-group\">\n" +
-    "                                <label>PortBindings:</label>\n" +
-    "                                    <div ng-repeat=\"portBinding in config.HostConfig.PortBindings\">\n" +
-    "                                        <div class=\"form-group form-inline inline-portbinding\">\n" +
-    "                                            <div class=\"row\">\n" +
-    "                                                <div class=\"col-xs-4\" style=\"padding-right:0px;\">\n" +
-    "                                                <label class=\"portbinding-label\">Host IP:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_hostIP\" name=\"hostIP\" ng-model=\"portBinding.ip\" class=\"form-control\" required/>\n" +
-    "                                            <br />\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.hostIP.$error.required\" class=\"req_err err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                                <div class=\"col-xs-4\">\n" +
-    "                                                <label class=\"portbinding-label\">Host Port:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_hostport\" name=\"hostPort\" ng-model=\"portBinding.extPort\" class=\"form-control\" required/>\n" +
-    "                                            <br />\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.hostPort.$error.required\" id=\"req_err_hostport\" class=\"err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                                <div class=\"col-xs-4\">\n" +
-    "                                                <label class=\"portbinding-label\">Container port:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_containerport\" name=\"containerPort\" ng-model=\"portBinding.intPort\" class=\"form-control\" required/>\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.containerPort.$error.required\" class=\"req_err err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                            </div>\n" +
-    "                                            <br />\n" +
-    "                                            <select ng-model=\"portBinding.protocol\">\n" +
-    "                                                <option value=\"\">tcp</option>\n" +
-    "                                                <option value=\"udp\">udp</option>\n" +
-    "                                            </select>\n" +
-    "                                            <button class=\"btn btn-danger btn-xs form-control\"\n" +
-    "                                                    ng-click=\"rmEntry(config.HostConfig.PortBindings, portBinding)\">\n" +
-    "                                                Remove\n" +
-    "                                            </button>\n" +
-    "                                        </div>\n" +
-    "                                    </div>\n" +
-    "                                <button type=\"button\" id=\"addPort_btn\" class=\"btn btn-success btn-sm\"\n" +
-    "                                        ng-click=\"addEntry(config.HostConfig.PortBindings, {ip: '', extPort: '', intPort: ''})\">\n" +
-    "                                    Add Port Binding\n" +
-    "                                </button>\n" +
-    "                            </div>\n" +
-    "                        </div>\n" +
-    "                    </fieldset>                        \n" +
-    "                </form>\n" +
-    "            </div>\n" +
-    "            <div class=\"modal-footer\">            \n" +
-    "                <a href=\"\" class=\"btn btn-primary btn-lg\" ng-click=\"preset()\">Preset</a>\n" +
-    "                <a href=\"\" class=\"btn btn-success btn-lg\" ng-click=\"create()\">Create</a>\n" +
-    "            </div>\n" +
-    "        </div>\n" +
-    "    </div>\n" +
-    "</div>\n" +
-    "\n" +
-    "");
-}]);
-
-angular.module("app/components/startContainer2/startcontainer2.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("app/components/startContainer2/startcontainer2.html",
-    "<div id=\"create-modal\" class=\"modal fade\">\n" +
-    "    <div class=\"modal-dialog\">\n" +
-    "        <div class=\"modal-content\">\n" +
-    "            <div class=\"modal-header\">\n" +
-    "                <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-hidden=\"true\">&times;</button>\n" +
-    "                <h3>Create And Start Container From Image</h3>\n" +
-    "            </div>\n" +
-    "            <div class=\"modal-body\">\n" +
-    "                <form name=\"container_info\" role=\"form\">\n" +
-    "                    <fieldset>\n" +
-    "                        <div class=\"row\">\n" +
-    "                            <div class=\"col-xs-6\">\n" +
-    "                                <div class=\"form-group\">\n" +
-    "                                    <label>Cmd:</label>\n" +
-    "                                    <input type=\"text\" id=\"input_cmd\" name=\"cmd\" ng-model=\"config.Cmd\" class=\"form-control\" required/>\n" +
-    "                                    <span ng-show=\"container_info.cmd.$error.required\" class=\"req_err err\">\n" +
-    "                                        Required</span>\n" +
-    "                                    <small>Input commands as a raw string or JSON array</small>\n" +
-    "                                </div>\n" +
-    "                                <div class=\"form-group\">\n" +
-    "                                    <label>Name:</label>\n" +
-    "                                    <input type=\"text\" id=\"input_name\" name=\"name\" ng-model=\"config.name\" class=\"form-control\" required ng-minlength=\"5\"/>\n" +
-    "                                    <span ng-show=\"container_info.name.$error.required\" class=\"req_err err\">\n" +
-    "                                        Required</span>\n" +
-    "                                    <span ng-show=\"container_info.name.$error.minlength\" id=\"name_min_err\" class=\"err\">\n" +
-    "                                        Minimum 5 characters</span>\n" +
-    "                                </div>\n" +
-    "                                <div class=\"form-group\">\n" +
-    "                                    <label>Hostname:</label>\n" +
-    "                                    <input type=\"text\" id=\"input_hostname\" name=\"hostname\" ng-model=\"config.Hostname\" class=\"form-control\" required/>\n" +
-    "                                    <span ng-show=\"container_info.hostname.$error.required\" class=\"req_err err\">\n" +
-    "                                        Required</span>\n" +
-    "                                </div>\n" +
-    "                            </div>\n" +
-    "                        </div>\n" +
-    "                        <hr>\n" +
-    "                        <div class=\"col-xs-6\">\n" +
-    "                            <div class=\"form-group\">\n" +
-    "                                <label>MountDatabase:</label>\n" +
-    "                                <div ng-repeat=\"bind in config.HostConfig.Binds\">   \n" +
-    "                                    <div class=\"form-group form-inline\">\n" +
-    "                                        <input type=\"text\" id=\"input_bind\" name=\"bind\" ng-model=\"bind.name\" class=\"form-control\" placeholder=\"/host:/container\" required/>\n" +
-    "                                        <span ng-show=\"container_info.bind.$error.required\" class=\"req_err err\">Required</span>\n" +
-    "                                        <button type=\"button\" class=\"btn btn-danger btn-sm\"\n" +
-    "                                                ng-click=\"rmEntry(config.HostConfig.Binds, bind)\">Remove\n" +
-    "                                        </button>\n" +
-    "                                    </div>\n" +
-    "                                </div>\n" +
-    "                                <button type=\"button\" id=\"addBind_btn\" class=\"btn btn-success btn-sm\"\n" +
-    "                                        ng-click=\"addEntry(config.HostConfig.Binds, {name: ''})\">Add Bind\n" +
-    "                                </button>\n" +
-    "                            </div>\n" +
-    "                            <div class=\"form-group\">\n" +
-    "                                <label>PortBindings:</label>\n" +
-    "                                    <div ng-repeat=\"portBinding in config.HostConfig.PortBindings\">\n" +
-    "                                        <div class=\"form-group form-inline inline-portbinding\">\n" +
-    "                                            <div class=\"row\">\n" +
-    "                                                <div class=\"col-xs-4\" style=\"padding-right:0px;\">\n" +
-    "                                                <label class=\"portbinding-label\">Host IP:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_hostIP\" name=\"hostIP\" ng-model=\"portBinding.ip\" class=\"form-control\" style=\"padding-left:0px; padding-right:0px\" required/>\n" +
-    "                                            <br />\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.hostIP.$error.required\" class=\"req_err err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                                <div class=\"col-xs-4\">\n" +
-    "                                                <label class=\"portbinding-label\">Host Port:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_hostport\" name=\"hostPort\" ng-model=\"portBinding.extPort\" class=\"form-control\" style=\"padding-left:0px; padding-right:0px\" required/>\n" +
-    "                                            <br />\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.hostPort.$error.required\" id=\"req_err_hostport\" class=\"err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                                <div class=\"col-xs-4\">\n" +
-    "                                                <label class=\"portbinding-label\">Container port:</label>\n" +
-    "                                                <input type=\"text\" id=\"input_containerport\" name=\"containerPort\" ng-model=\"portBinding.intPort\" class=\"form-control\" style=\"padding-left:0px; padding-right:0px\" required/>\n" +
-    "                                            \n" +
-    "                                                <span ng-show=\"container_info.containerPort.$error.required\" class=\"req_err err\">\n" +
-    "                                                    Required</span>\n" +
-    "                                                </div>\n" +
-    "                                            </div>\n" +
-    "                                            <br />\n" +
-    "                                            <select ng-model=\"portBinding.protocol\">\n" +
-    "                                                <option value=\"\">tcp</option>\n" +
-    "                                                <option value=\"udp\">udp</option>\n" +
-    "                                            </select>\n" +
-    "                                            <button class=\"btn btn-danger btn-xs form-control\"\n" +
-    "                                                    ng-click=\"rmEntry(config.HostConfig.PortBindings, portBinding)\">\n" +
-    "                                                Remove\n" +
-    "                                            </button>\n" +
-    "                                        </div>\n" +
-    "                                    </div>\n" +
-    "                                <button type=\"button\" id=\"addPort_btn\" class=\"btn btn-success btn-sm\"\n" +
-    "                                        ng-click=\"addEntry(config.HostConfig.PortBindings, {ip: '', extPort: '', intPort: ''})\">\n" +
-    "                                    Add Port Binding\n" +
-    "                                </button>\n" +
-    "                            </div>\n" +
-    "                        </div>\n" +
-    "                    </fieldset>                        \n" +
-    "                </form>\n" +
-    "            </div>\n" +
-    "            <div class=\"modal-footer\">            \n" +
-    "                <a href=\"\" class=\"btn btn-primary btn-lg\" ng-click=\"preset()\">Preset</a>\n" +
-    "                <a href=\"\" class=\"btn btn-success btn-lg\" ng-click=\"create()\">Create</a>\n" +
-    "            </div>\n" +
-    "        </div>\n" +
-    "    </div>\n" +
-    "</div>\n" +
-    "\n" +
     "");
 }]);
 
@@ -4044,7 +4194,7 @@ angular.module("app/components/stats/stats.html", []).run(["$templateCache", fun
   $templateCache.put("app/components/stats/stats.html",
     "<div class=\"row\">\n" +
     "    <div class=\"col-xs-12\">\n" +
-    "        <h1>Stats</h1>\n" +
+    "        <h1>Stats for: {{ containerName }}</h1>\n" +
     "\n" +
     "        <h2>CPU</h2>\n" +
     "\n" +
@@ -4087,8 +4237,8 @@ angular.module("app/components/stats/stats.html", []).run(["$templateCache", fun
     "                </accordion>\n" +
     "            </div>\n" +
     "        </div>\n" +
-    "<!--\n" +
-    "        <h1>Network</h1>\n" +
+    "\n" +
+    "        <h1>Network {{ networkName}}</h1>\n" +
     "        <div class=\"row\">\n" +
     "            <div class=\"col-sm-7\">\n" +
     "                <canvas id=\"network-stats-chart\" width=\"650\" height=\"300\"></canvas>\n" +
@@ -4107,9 +4257,85 @@ angular.module("app/components/stats/stats.html", []).run(["$templateCache", fun
     "                </accordion>\n" +
     "            </div>\n" +
     "        </div>\n" +
-    "-->\n" +
     "    </div>\n" +
     "</div>\n" +
-    "\n" +
     "");
+}]);
+
+angular.module("app/components/volumes/volumes.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("app/components/volumes/volumes.html",
+    "<h2>Volumes:</h2>\n" +
+    "\n" +
+    "<div>\n" +
+    "    <ul class=\"nav nav-pills pull-left\">\n" +
+    "        <li class=\"dropdown\">\n" +
+    "            <a class=\"dropdown-toggle\" id=\"drop4\" role=\"button\" data-toggle=\"dropdown\" data-target=\"#\">Actions <b\n" +
+    "                    class=\"caret\"></b></a>\n" +
+    "            <ul id=\"menu1\" class=\"dropdown-menu\" role=\"menu\" aria-labelledby=\"drop4\">\n" +
+    "                <li><a tabindex=\"-1\" href=\"\" ng-click=\"removeAction()\">Remove</a></li>\n" +
+    "            </ul>\n" +
+    "        </li>\n" +
+    "    </ul>\n" +
+    "\n" +
+    "    <div class=\"pull-right form-inline\">\n" +
+    "        <input type=\"text\" class=\"form-control\" id=\"filter\" placeholder=\"Filter\" ng-model=\"filter\"/> <label\n" +
+    "            class=\"sr-only\" for=\"filter\">Filter</label>\n" +
+    "    </div>\n" +
+    "</div>\n" +
+    "<table class=\"table table-striped\">\n" +
+    "    <thead>\n" +
+    "    <tr>\n" +
+    "        <th><label><input type=\"checkbox\" ng-model=\"toggle\" ng-change=\"toggleSelectAll()\"/> Select</label></th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/volumes/\" ng-click=\"order('Name')\">\n" +
+    "                Name\n" +
+    "                <span ng-show=\"sortType == 'Name' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'Name' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/volumes/\" ng-click=\"order('Driver')\">\n" +
+    "                Driver\n" +
+    "                <span ng-show=\"sortType == 'Driver' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'Driver' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "        <th>\n" +
+    "            <a href=\"#/volumes/\" ng-click=\"order('Mountpoint')\">\n" +
+    "                Mountpoint\n" +
+    "                <span ng-show=\"sortType == 'Mountpoint' && !sortReverse\" class=\"glyphicon glyphicon-chevron-down\"></span>\n" +
+    "                <span ng-show=\"sortType == 'Mountpoint' && sortReverse\" class=\"glyphicon glyphicon-chevron-up\"></span>\n" +
+    "            </a>\n" +
+    "        </th>\n" +
+    "    </tr>\n" +
+    "    </thead>\n" +
+    "    <tbody>\n" +
+    "    <tr ng-repeat=\"volume in (filteredVolumes = (volumes | filter:filter | orderBy:sortType:sortReverse))\">\n" +
+    "        <td><input type=\"checkbox\" ng-model=\"volume.Checked\"/></td>\n" +
+    "        <td>{{ volume.Name|truncate:20 }}</td>\n" +
+    "        <td>{{ volume.Driver }}</td>\n" +
+    "        <td>{{ volume.Mountpoint }}</td>\n" +
+    "    </tr>\n" +
+    "    </tbody>\n" +
+    "</table>\n" +
+    "<div class=\"row\">\n" +
+    "    <div class=\"col-xs-offset-3 col-xs-6\">\n" +
+    "        <form role=\"form\" class=\"\">\n" +
+    "            <div class=\"form-group\">\n" +
+    "                <label>Name:</label>\n" +
+    "                <input type=\"text\" placeholder='tardis'\n" +
+    "                       ng-model=\"createVolumeConfig.Name\" class=\"form-control\"/>\n" +
+    "            </div>\n" +
+    "            <div class=\"form-group\">\n" +
+    "                <label>Driver:</label>\n" +
+    "                <input type=\"text\" placeholder='local'\n" +
+    "                       ng-model=\"createVolumeConfig.Driver\" class=\"form-control\"/>\n" +
+    "            </div>\n" +
+    "            <button type=\"button\" class=\"btn btn-success btn-sm\"\n" +
+    "                    ng-click=\"addVolume(createVolumeConfig)\">\n" +
+    "                Create Volume\n" +
+    "            </button>\n" +
+    "        </form>\n" +
+    "    </div>\n" +
+    "</div>");
 }]);

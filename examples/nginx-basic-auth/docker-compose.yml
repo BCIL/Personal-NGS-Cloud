@@ -1,5 +1,5 @@
-uifordocker:
-  image: uifordocker/uifordocker
+dockerui:
+  image: dockerui/dockerui
   privileged: true
   volumes:
    - /var/run/docker.sock:/var/run/docker.sock
@@ -7,6 +7,6 @@ uifordocker:
 nginx:
   build: .
   links:
-   - uifordocker
+   - dockerui
   ports:
    - 80:80

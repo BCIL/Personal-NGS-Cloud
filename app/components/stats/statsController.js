@@ -1,21 +1,7 @@
 angular.module('stats', [])
     .controller('StatsController', ['Settings', '$scope', 'Messages', '$timeout', 'Container', '$routeParams', 'humansizeFilter', '$sce', function (Settings, $scope, Messages, $timeout, Container, $routeParams, humansizeFilter, $sce) {
-        // TODO: Implement memory chart, force scale to 0-100 for cpu, 0 to limit for memory, fix charts on dashboard,
+        // TODO: Force scale to 0-100 for cpu, fix charts on dashboard,
         // TODO: Force memory scale to 0 - max memory
-        //var initialStats = {}; // Used to set scale of memory graph.
-        //
-        //Container.stats({id: $routeParams.id}, function (d) {
-        //    var arr = Object.keys(d).map(function (key) {
-        //        return d[key];
-        //    });
-        //    if (arr.join('').indexOf('no such id') !== -1) {
-        //        Messages.error('Unable to retrieve stats', 'Is this container running?');
-        //        return;
-        //    }
-        //    initialStats = d;
-        //}, function () {
-        //    Messages.error('Unable to retrieve stats', 'Is this container running?');
-        //});
 
         var cpuLabels = [];
         var cpuData = [];
@@ -74,7 +60,7 @@ angular.module('stats', [])
                 color: 'rgba(255,180,174,0.5)',
                 title: 'Rx Data'
             }];
-        //legend($('#network-legend').get(0), networkLegendData);
+        legend($('#network-legend').get(0), networkLegendData);
 
         Chart.defaults.global.animationSteps = 30; // Lower from 60 to ease CPU load.
         var cpuChart = new Chart($('#cpu-stats-chart').get(0).getContext("2d")).Line({
@@ -98,7 +84,6 @@ angular.module('stats', [])
                 //scaleStepWidth: Math.ceil(initialStats.memory_stats.limit / 10),
                 //scaleStartValue: 0
             });
-        /*
         var networkChart = new Chart($('#network-stats-chart').get(0).getContext("2d")).Line({
             labels: networkLabels,
             datasets: [networkRxDataset, networkTxDataset]
@@ -109,7 +94,7 @@ angular.module('stats', [])
             responsive: true
         });
         $scope.networkLegend = $sce.trustAsHtml(networkChart.generateLegend());
-        */
+
         function updateStats() {
             Container.stats({id: $routeParams.id}, function (d) {
                 var arr = Object.keys(d).map(function (key) {
@@ -124,10 +109,11 @@ angular.module('stats', [])
                 $scope.data = d;
                 updateCpuChart(d);
                 updateMemoryChart(d);
-                //updateNetworkChart(d);
-                timeout = $timeout(updateStats, 2000);
+                updateNetworkChart(d);
+                timeout = $timeout(updateStats, 5000);
             }, function () {
                 Messages.error('Unable to retrieve stats', 'Is this container running?');
+                timeout = $timeout(updateStats, 5000);
             });
         }
 
@@ -139,13 +125,11 @@ angular.module('stats', [])
         updateStats();
 
         function updateCpuChart(data) {
-            console.log('updateCpuChart', data);
             cpuChart.addData([calculateCPUPercent(data)], new Date(data.read).toLocaleTimeString());
             cpuChart.removeData();
         }
 
         function updateMemoryChart(data) {
-            console.log('updateMemoryChart', data);
             memoryChart.addData([data.memory_stats.usage], new Date(data.read).toLocaleTimeString());
             memoryChart.removeData();
         }
@@ -153,6 +137,12 @@ angular.module('stats', [])
         var lastRxBytes = 0, lastTxBytes = 0;
 
         function updateNetworkChart(data) {
+            // 1.9+ contains an object of networks, for now we'll just show stats for the first network
+            // TODO: Show graphs for all networks
+            if (data.networks) {
+                $scope.networkName = Object.keys(data.networks)[0];
+                data.network = data.networks[$scope.networkName];
+            }
             var rxBytes = 0, txBytes = 0;
             if (lastRxBytes !== 0 || lastTxBytes !== 0) {
                 // These will be zero on first call, ignore to prevent large graph spike
@@ -161,9 +151,8 @@ angular.module('stats', [])
             }
             lastRxBytes = data.network.rx_bytes;
             lastTxBytes = data.network.tx_bytes;
-            console.log('updateNetworkChart', data);
-            //networkChart.addData([rxBytes, txBytes], new Date(data.read).toLocaleTimeString());
-            //networkChart.removeData();
+            networkChart.addData([rxBytes, txBytes], new Date(data.read).toLocaleTimeString());
+            networkChart.removeData();
         }
 
         function calculateCPUPercent(stats) {
@@ -179,10 +168,15 @@ angular.module('stats', [])
             var systemDelta = curCpu.system_cpu_usage - prevCpu.system_cpu_usage;
 
             if (systemDelta > 0.0 && cpuDelta > 0.0) {
-                //console.log('size thing:', curCpu.cpu_usage.percpu_usage);
                 cpuPercent = (cpuDelta / systemDelta) * curCpu.cpu_usage.percpu_usage.length * 100.0;
             }
             return cpuPercent;
         }
+
+        Container.get({id: $routeParams.id}, function (d) {
+            $scope.containerName = d.Name.substring(1);
+        }, function (e) {
+            Messages.error("Failure", e.data);
+        });
     }])
 ;

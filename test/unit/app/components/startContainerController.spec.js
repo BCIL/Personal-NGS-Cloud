@@ -20,11 +20,11 @@ describe('startContainerController', function () {
     }));
     function expectGetContainers() {
         $httpBackend.expectGET('dockerapi/containers/json?all=1').respond([{
-            'Command': './uifordocker -e /docker.sock',
+            'Command': './ui-for-docker -e /docker.sock',
             'Created': 1421817232,
             'Id': 'b17882378cee8ec0136f482681b764cca430befd52a9bfd1bde031f49b8bba9f',
-            'Image': 'uifordocker:latest',
-            'Names': ['/uifordocker'],
+            'Image': 'ui-for-docker:latest',
+            'Names': ['/ui-for-docker'],
             'Ports': [{
                 'IP': '0.0.0.0',
                 'PrivatePort': 9000,
