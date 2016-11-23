@@ -23,7 +23,7 @@ angular.module('uifordocker.filters', [])
         return function (text) {
             if (text === 'Ghost') {
                 return 'important';
-            } 
+            }
         else if (text.indexOf('Exit') !== -1 && text !== 'Exit 0' || text ==='Created') {
                 return 'default';
             }
@@ -257,6 +257,16 @@ angular.module('uifordocker.filters', [])
             return msg;
         };
     })
+    .filter('list_to_str', function () {
+        return function (list) {
+            return list.toString().replace("/","");
+        }
+    })
+    .filter('get_image_name', function() {
+        return function (image) {
+            return image.split(':')[1]
+        }
+    })
     .filter('chk_containers', function() {
         return function (c) {
             window.test_containers = c;
@@ -266,6 +276,4 @@ angular.module('uifordocker.filters', [])
         return function (img) {
             window.test_image_create = img;
         }
-    });
-
-
+    })

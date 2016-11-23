@@ -34,17 +34,25 @@ angular.module('dashboard', [])
             $scope.sortKey = key;
             $scope.reverse = !$scope.reverse;
         }
-        
+
         $scope.myFilter = function (container) {
             var image_name = container.Image;
-            
-            if ( image_name.search("_dui_") != -1 ) {
+
+            if ( image_name.includes('_dui_') ) {
                 return true
             }
             else {
                 return false
             }
          }
+
+        $scope.chk_dui = function (container) {
+            var image_Names = container.Names;
+            var image_Status = container.Status;
+            if (image_Status.includes('Up')) {
+                return image_Names
+            }
+        };
 
         var opts = {animation: false};
         if (Settings.firstLoad) {
@@ -132,21 +140,22 @@ angular.module('dashboard', [])
                     value: stopped,
                     color: '#C7604C',
                     title: 'Stopped'
-                }, // stopped
-                {
+                } // stopped
+                /*{
                     value: ghost,
                     color: '#E2EAE9',
                     title: 'Ghost'
-                } // ghost
+                } // ghost*/
             ];
 
-            c.Doughnut(data, opts);
+            c.Pie(data, opts);
             var lgd = $('#chart-legend').get(0);
             legend(lgd, data);
             window.test_container_port = [];
             setTimeout(function() {
                 $("#displayAll").click();
             },300);
+/*
             setTimeout(function() {
                 'use strict';
                 $('#occupied_ports').empty();
@@ -167,7 +176,7 @@ angular.module('dashboard', [])
                     }
                 }
             },600);
-
+*/
             var refresh_interval = 3000//(1000 * 60) * 5;
             /*
             setInterval(function() {
@@ -182,4 +191,3 @@ angular.module('dashboard', [])
         $('#images-created-chart').css('width', '80%');
         $('#displayAll_chk').hide();
     }]);
-

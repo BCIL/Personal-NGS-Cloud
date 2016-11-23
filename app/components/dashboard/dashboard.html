@@ -51,6 +51,7 @@
                     </tbody>
                </table>
             </aside>
+            <hr />
             <aside style="float: left">
                 <div class="status_chart_group">
                     <h3>Status</h3>                    
@@ -64,21 +65,12 @@
             <aside style="float: left; margin-left: 5%">
                 <div class="occupied_ports_group">
                     <h3>Running Pipelines</h3>
-                    <ul id="occupied_ports">
+                    <ul id="occupied_ports" ng-repeat="container in containers | filter:myFilter | filter:chk_dui">
+                        <li> {{ container.Names | list_to_str }} - <b>{{ container.Image | get_image_name }}</b> </li>
                     </ul>
                 </div>
 
             </aside>
-            <!--
-            <aside style="float: left; margin-left: 5%">
-                <div class="running_pipelines_group">
-                    <h3>Running Pipelines</h3>
-                    <ul id="occupied_ports">
-                    </ul>
-                </div>
-
-            </aside>
-            -->
         </div>
     </div>
 <!--
@@ -98,5 +90,3 @@
     </div>
 -->
 </div>
-
-
