@@ -11,6 +11,17 @@ else
 	echo "** Verified root permission.."
 fi
 
+if [ "$(uname)" = "Darwin" ]; then
+    user_os="MacOS"
+    printf "** [ERROR] - BCIL-dockerui does not work on MacOS.\n\t     Please run this script on Linux environmnet.\n\t     Aborted.\n"
+	exit 1
+elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
+    user_os="Linux"
+else
+	printf "** [ERROR] - This script only works on Linux.\n\t     Please run this script on Linux or MacOS environmnet.\n\t     Aborted.\n"
+	exit 1
+fi
+
 command -v lsof >/dev/null 2>&1 || { echo >&2 "** Installing lsof.."; apt-get install -y lsof > /dev/null 2>&1; }
 command -v samba >/dev/null 2>&1 || { echo >&2 "** Installing samba.."; apt-get install -y samba > /dev/null 2>&1; }
 
@@ -79,7 +90,7 @@ if ! $dockerui_uname_chk; then
 	printf "\n*************** New user information **************\n** User: $dockerui_uname\n** Password: $dockerui_passwd\n****************************************************\n\n"
 	sudo smbpasswd -a $dockerui_uname -n
 else
-	printf "\n* The username 'dockerui' is already exist.\n  You need to provide the user 'dockerui' confidential on Windows to setup shared location.\n\n"
+	printf "\n* The username 'dockerui' is already exist.\n  You will need to provide the user 'dockerui' confidential when you setup the shared input location (btw Linux and Windows).\n\n"
 fi
 
 RNA_Seq_insert_size="100 130 150 170 200"
@@ -249,9 +260,13 @@ if [ "$hn" != "" ]; then
 		fi 
 	done
 else
-	#dockerui_ip=$(ifconfig | awk '/inet addr/{print substr($2,6)}' | sed 1d | sed 2d)
-	dockerui_ip=$(ifconfig | awk '/inet addr/{print substr($2,6)}' | sed -n 2p)
-	dockerui_ip=$(echo $dockerui_ip)
+	if [ "$user_os" = "MacOS" ]; then
+		dockerui_ip=$(ifconfig | awk '/inet/{print substr($2,1)}' | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | grep -v '127.0.0.1' | tail -1)
+		dockerui_ip=$(echo $dockerui_ip)
+	else
+		dockerui_ip=$(ifconfig | awk '/inet addr/{print substr($2,6)}' | grep -v '127.0.0.1' | tail -1)
+		dockerui_ip=$(echo $dockerui_ip)
+	fi
 fi
 
 #echo "** Pulling ChIP-Seq pipeline"
@@ -308,7 +323,7 @@ do
 done
 docker stop $pipeline_id > /dev/null 2>&1
 docker stop $(docker ps | grep "_dui_MateInnerDistance_" | awk '{print $1}') > /dev/null 2>&1
-printf 'Instances are generated.\n*********************************************\n'
+printf '** Instances are generated.\n*********************************************\n'
 docker ps -a | grep _dui_ | awk '{print $2}'
 printf '*********************************************\n\n'
 
@@ -318,7 +333,8 @@ if [ -f "/etc/samba/smb.conf" ]; then
 	if [ "$chk_dockerui_installed" = "#dockerui_installed" ]; then
 		printf " - checked!\n\n"
 	else
-		setting_val="\n[<folder_name>]\npath = $BCIL_data_path\navailable = yes\nvalid users = $dockerui_uname\nread only = no\nbrowsable = yes\npublic = yes\nwritable = yes\n#dockerui_installed"
+		fn=${BCIL_data_path##*/} 
+		setting_val="\n[$fn]\npath = $BCIL_data_path\navailable = yes\nvalid users = $dockerui_uname\nread only = no\nbrowsable = yes\npublic = yes\nwritable = yes\n#dockerui_installed"
 		echo -e $setting_val >> /etc/samba/smb.conf
 		printf " - done!\n\n"
 		sudo service smbd restart
@@ -356,7 +372,7 @@ docker run --restart=always --privileged -d -p 9000:9000 -v /var/run/docker.sock
 #sudo bash -c 'grunt --base /home/DockerUI --gruntfile /home/dockerui/gruntFile.js run' > /dev/null 2>&1
 
 if [ "$no_dataset" = "true" ]; then
-	printf "** DockerUI is ready, but all pipelines will not work because you did not provide dataset. \n ** Please place all your dataset in %s to run pipelines**" "$BCIL_data_path_input"
+	printf "** DockerUI is ready! \n ** Please place all your dataset in %s to run pipelines**\n\n" "$BCIL_data_path_input"
 else
 	printf "\n***************************************************\n** DockerUI is Ready! ( %s:9000 )\n***************************************************\n\n" "$dockerui_ip"
 fi
