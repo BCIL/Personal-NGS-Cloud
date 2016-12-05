@@ -40,6 +40,7 @@ if [ "$port_chk" != "" ]; then
 		kill -9 $(lsof -i :9000 | awk -F ' ' '{print $2}' | sed 1d)
 		port_chk=$(netstat -lnt | awk '$6 == "LISTEN" && $4 ~ ".9000"')
 		docker stop $(docker ps | grep "dockerui:latest" | awk '{print $1}') > /dev/null 2>&1
+		docker rm -f dockerui > /dev/null 2>&1
 		if [ "$port_chk" != "" ]; then
 			printf "* ERROR: Failed to make port 9000 available. \n Aborted. \n"
 			exit 1
@@ -94,6 +95,7 @@ else
 fi
 
 RNA_Seq_insert_size="100 130 150 170 200"
+ChIP_Seq_inst_list="5010 5020"
 BCIL_data_path="/home/$dockerui_uname/BCIL_pipeline_runs"
 BCIL_data_path_input="$BCIL_data_path/input"
 BCIL_data_path_output="$BCIL_data_path/output"
@@ -260,16 +262,14 @@ if [ "$hn" != "" ]; then
 		fi 
 	done
 else
-	if [ "$user_os" = "MacOS" ]; then
-		dockerui_ip=$(ifconfig | awk '/inet/{print substr($2,1)}' | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | grep -v '127.0.0.1' | tail -1)
-		dockerui_ip=$(echo $dockerui_ip)
-	else
-		dockerui_ip=$(ifconfig | awk '/inet addr/{print substr($2,6)}' | grep -v '127.0.0.1' | tail -1)
-		dockerui_ip=$(echo $dockerui_ip)
+	dockerui_ip=$(wget http://ipinfo.io/ip -qO -)
+	if [ "$dockerui_ip" = "" ]; then
+		dockerui_ip="127.0.0.1"
 	fi
 fi
 
-#echo "** Pulling ChIP-Seq pipeline"
+echo "** Pulling ChIP-Seq pipeline"
+sudo bash -c "docker pull bcil/pipelines:ChIPsequser_paired_latest" > /dev/null
 #sudo bash -c "docker pull bcil/pipelines:ChIPsequser_latest"
 echo "** Pulling RNA-Seq pipelines"
 #sudo bash -c "docker pull bcil/pipelines:RNAsequser_tophat1_latest"
@@ -283,20 +283,26 @@ echo ""
 echo "** IP Address: $dockerui_ip"
 echo ""
 
-# echo "** Initializing ChIP-Seq pipeline instances.."
-# pipeline_id=$(docker run -d bcil/pipelines:ChIPsequser_latest /bin/bash) > /dev/null 2>&1
+echo "** Initializing ChIP-Seq pipeline instances.."
+pipeline_id=$(docker run -d bcil/pipelines:ChIPsequser_paired_latest /bin/bash) > /dev/null 2>&1
+dui_chk=$(docker ps -a | grep _dui_paired)
+if [ "$dui_chk" != "" ]; then
+	docker rm -f $(docker ps -a | grep _dui_paired | awk '{print $1}') > /dev/null 2>&1
+fi
+printf "***************** ChIP-Seq tool options ******************\n* Mate Inner Distance: 200\n* p_value='0.01\n* gsize='3000000000\n* mfold='15\n***************************************************\n\n"
+for i in $ChIP_Seq_inst_list
+do
+	image_name="bcil/pipelines:ChIP_Seq_dui_paired_$(echo $i)"
+	sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
+	if [ "$IsCustomPath" = true ]; then
+		sudo bash -c "docker run --name ChIPseq_dockerui -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env mfold='15' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+	else
+		sudo bash -c "docker run --name ChIPseq_dockerui -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env mfold='15' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+	fi
+done
 
-# for j in 1 2 3
-# do
-# 	sudo bash -c "docker commit $(echo $pipeline_id) bcil/pipelines:ChIPsequser_dockerui_$(echo $j)" > /dev/null 2>&1
-# 	if [ "$IsCustomPath" = true ]; then
-# 		sudo bash -c "docker run --name ChIPseq_dockerui_$(echo $j) -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):500$(echo $j):8090 bcil/pipelines:ChIPsequser_dockerui_$(echo $j) sh /home/init.sh" > /dev/null 2>&1
-# 	else
-# 		sudo bash -c "docker run --name ChIPseq_dockerui_$(echo $j) -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):500$(echo $j):8090 bcil/pipelines:ChIPsequser_dockerui_$(echo $j) sh /home/init.sh" > /dev/null 2>&1
-# 	fi
-# done
-# docker stop $pipeline_id > /dev/null 2>&1
-# docker stop $(docker ps | grep "sequser_dockerui_" | awk '{print $1}') > /dev/null 2>&1
+docker stop $pipeline_id > /dev/null 2>&1
+docker stop $(docker ps | grep "_dui_paired" | awk '{print $1}') > /dev/null 2>&1
 
 
 echo "** Initializing RNA-Seq pipeline instances.."
@@ -304,7 +310,7 @@ dui_chk=$(docker ps -a | grep _dui_MateInnerDistance_)
 if [ "$dui_chk" != "" ]; then
 	docker rm -f $(docker ps -a | grep _dui_MateInnerDistance_ | awk '{print $1}') > /dev/null 2>&1
 fi
-printf "***************** Tophat options ******************\n* Mate Inner Distance: $RNA_Seq_insert_size\n* Anchor Length: 8\n* Minimum length of read segments: 25\n***************************************************\n\n"
+printf "***************** RNA-Seq tool options ******************\n* Mate Inner Distance: $RNA_Seq_insert_size\n* Anchor Length: 8\n* Minimum length of read segments: 25\n***************************************************\n\n"
 if "$IsCustomPath"; then
 	pipeline_id=$(docker run -v $(echo $user_data_path):/home/data -ti -d bcil/pipelines:RNAsequser_tophat2_latest /bin/bash) > /dev/null 2>&1
 else	
@@ -316,9 +322,9 @@ do
 	image_name="bcil/pipelines:RNA_Seq_tp2_dui_MateInnerDistance_$(echo $j)"
 	sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
 	if "$IsCustomPath"; then
-		sudo bash -c "docker run --name RNAseq_inner_dist_$(echo $j) -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):6$(echo $j):8090 --env mate_std_dev=$(echo $j) --env anchor_length='8' --env segment_length='25' $(echo $image_name) sh /home/init.sh" > /dev/null 2>&1
+		sudo bash -c "docker run --name RNAseq_inner_dist_$(echo $j) -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):6$(echo $j):8090 --env mate_std_dev=$(echo $j) --env anchor_length='8' --env segment_length='25' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 	else
-		sudo bash -c "docker run --name RNAseq_inner_dist_$(echo $j) -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):6$(echo $j):8090 --env mate_std_dev=$(echo $j) --env anchor_length='8' --env segment_length='25' $(echo $image_name) sh /home/init.sh" > /dev/null 2>&1
+		sudo bash -c "docker run --name RNAseq_inner_dist_$(echo $j) -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):6$(echo $j):8090 --env mate_std_dev=$(echo $j) --env anchor_length='8' --env segment_length='25' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 	fi
 done
 docker stop $pipeline_id > /dev/null 2>&1
