@@ -372,7 +372,7 @@ fi
 # done
 
 echo "** Initializing DockerUI.."
-docker pull baekdookim/dockerui
+docker pull bcil/pipelines:dockerui
 docker rm -f dockerui > /dev/null 2>&1
 docker run --restart=always --privileged -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock --name dockerui baekdookim/dockerui
 #sudo bash -c 'grunt --base /home/DockerUI --gruntfile /home/dockerui/gruntFile.js run' > /dev/null 2>&1
