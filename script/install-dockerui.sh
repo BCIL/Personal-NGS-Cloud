@@ -24,7 +24,6 @@ fi
 
 command -v lsof >/dev/null 2>&1 || { echo >&2 "** Installing lsof.."; apt-get install -y lsof > /dev/null 2>&1; }
 command -v samba >/dev/null 2>&1 || { echo >&2 "** Installing samba.."; apt-get install -y samba > /dev/null 2>&1; }
-
 command -v docker >/dev/null 2>&1 || { echo >&2 "** Installing Docker.."; wget -qO- https://get.docker.com/ | sh > /dev/null 2>&1; }
 
 port_chk=$(netstat -lnt | awk '$6 == "LISTEN" && $4 ~ ".9000"')
@@ -55,11 +54,11 @@ user_list=$(cut -d: -f1 /etc/passwd)
 dockerui_uname="dockerui"
 dockerui_passwd="dockerui"
 dockerui_uname_chk=false
-for i in $user_list; do 
-	if [ $i = $dockerui_uname ]; then 
+for i in $user_list; do
+	if [ $i = $dockerui_uname ]; then
 		dockerui_uname_chk=true
 		break
-	fi 
+	fi
 done
 
 if ! $dockerui_uname_chk; then
@@ -146,12 +145,12 @@ printf " .. 20%%"
 command -v wget >/dev/null 2>&1 || { apt-get install -y wget > /dev/null 2>&1; }
 sudo bash -c 'apt-get install -y python-software-properties' > /dev/null 2>&1
 printf " .. 30%%"
-sudo bash -c 'add-apt-repository -y ppa:chris-lea/node.js' > /dev/null 2>&1 
+sudo bash -c 'add-apt-repository -y ppa:chris-lea/node.js' > /dev/null 2>&1
 printf " .. 40%%"
 sudo bash -c "sudo sed -i -e 's/us.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list" > /dev/null 2>&1
 command -v curl >/dev/null 2>&1 || { apt-get install -y curl > /dev/null 2>&1; }
 printf " .. 50%%"
-#sudo bash -c 'apt-get update' > /dev/null 2>&1 
+#sudo bash -c 'apt-get update' > /dev/null 2>&1
 sudo bash -c "curl -sL https://deb.nodesource.com/setup | sudo bash -" > /dev/null 2>&1
 printf " .. 70%%"
 command -v nodejs >/dev/null 2>&1 || { apt-get install -y nodejs > /dev/null 2>&1; }
@@ -166,11 +165,11 @@ dockerui_ip=""
 if [ "$hn" != "" ]; then
 	IFS='.' read -ra arr <<< "$hn"
 	hn_ip=${arr[0]}
-	for i in 1 2 3 4; do 
+	for i in 1 2 3 4; do
 		dockerui_ip+=${hn_ip[$i]};
 		if [ "$i" != "4" ]; then
 			dockerui_ip+='.'
-		fi 
+		fi
 	done
 else
 	dockerui_ip=$(wget http://ipinfo.io/ip -qO -)
@@ -197,6 +196,13 @@ echo ""
 echo "** Initializing ChIP-Seq pipeline instances.."
 pipeline_id=$(docker run -d bcil/pipelines:ChIPsequser_paired_latest /bin/bash) > /dev/null 2>&1
 dui_chk=$(docker ps -a | grep _dui_paired)
+
+if [ $(which mysql) ]; then
+	mount_mysql="-v /var/run/mysqld/mysqld.sock:/var/run/mysqld/mysqld.sock"
+else
+	mount_mysql=""
+fi
+
 if [ "$dui_chk" != "" ]; then
 	docker rm -f $(docker ps -a | grep _dui_paired | awk '{print $1}') > /dev/null 2>&1
 fi
@@ -206,15 +212,14 @@ do
 	image_name="bcil/pipelines:ChIP_Seq_dui_paired_$(echo $i)"
 	sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
 	if [ "$IsCustomPath" = true ]; then
-		sudo bash -c "docker run --name ChIPseq_dockerui -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env mfold='15' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+		sudo bash -c "docker run --name ChIPseq_dockerui $(echo $mount_mysql) -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env mfold='15' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 	else
-		sudo bash -c "docker run --name ChIPseq_dockerui -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env mfold='15' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+		sudo bash -c "docker run --name ChIPseq_dockerui $(echo $mount_mysql) -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env mfold='15' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 	fi
 done
 
 docker stop $pipeline_id > /dev/null 2>&1
 docker stop $(docker ps | grep "_dui_paired" | awk '{print $1}') > /dev/null 2>&1
-
 
 echo "** Initializing RNA-Seq pipeline instances.."
 dui_chk=$(docker ps -a | grep _dui_MateInnerDistance_)
@@ -224,7 +229,7 @@ fi
 printf "***************** RNA-Seq tool options ******************\n* Mate Inner Distance: $RNA_Seq_insert_size\n* Anchor Length: 8\n* Minimum length of read segments: 25\n***************************************************\n\n"
 if "$IsCustomPath"; then
 	pipeline_id=$(docker run -v $(echo $user_data_path):/home/data -ti -d bcil/pipelines:RNAsequser_tophat2_latest /bin/bash) > /dev/null 2>&1
-else	
+else
 	pipeline_id=$(docker run -v $(echo $BCIL_data_path):/home/data -ti -d bcil/pipelines:RNAsequser_tophat2_latest /bin/bash) > /dev/null 2>&1
 fi
 
@@ -233,9 +238,9 @@ do
 	image_name="bcil/pipelines:RNA_Seq_tp2_dui_MateInnerDistance_$(echo $j)"
 	sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
 	if "$IsCustomPath"; then
-		sudo bash -c "docker run --name RNAseq_inner_dist_$(echo $j) -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):6$(echo $j):8090 --env mate_std_dev=$(echo $j) --env anchor_length='8' --env segment_length='25' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+		sudo bash -c "docker run --name RNAseq_inner_dist_$(echo $j) $(echo $mount_mysql) -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):6$(echo $j):8090 --env mate_std_dev=$(echo $j) --env anchor_length='8' --env segment_length='25' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 	else
-		sudo bash -c "docker run --name RNAseq_inner_dist_$(echo $j) -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):6$(echo $j):8090 --env mate_std_dev=$(echo $j) --env anchor_length='8' --env segment_length='25' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+		sudo bash -c "docker run --name RNAseq_inner_dist_$(echo $j) $(echo $mount_mysql) -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):6$(echo $j):8090 --env mate_std_dev=$(echo $j) --env anchor_length='8' --env segment_length='25' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 	fi
 done
 docker stop $pipeline_id > /dev/null 2>&1
@@ -250,7 +255,7 @@ if [ -f "/etc/samba/smb.conf" ]; then
 	if [ "$chk_dockerui_installed" = "#dockerui_installed" ]; then
 		printf " - checked!\n\n"
 	else
-		fn=${BCIL_data_path##*/} 
+		fn=${BCIL_data_path##*/}
 		setting_val="\n[$fn]\npath = $BCIL_data_path\navailable = yes\nvalid users = $dockerui_uname\nread only = no\nbrowsable = yes\npublic = yes\nwritable = yes\n#dockerui_installed"
 		echo -e $setting_val >> /etc/samba/smb.conf
 		printf " - done!\n\n"
@@ -261,32 +266,7 @@ else
 	exit 1
 fi
 
-<<<<<<< HEAD
 echo "** Initializing DockerUI ** "
-=======
-
-# for i in 1 2
-# do
-# 	if [ "$IsCustomPath" = true ]; then
-# 		pipeline_id=$(docker run -v $(echo $user_data_path):/home/data -ti -d bcil/pipelines:RNAsequser_tophat$(echo $i)_latest /bin/bash) > /dev/null 2>&1
-# 	else	
-# 		pipeline_id=$(docker run -v $(echo $BCIL_data_path):/home/data -ti -d bcil/pipelines:RNAsequser_tophat$(echo $i)_latest /bin/bash) > /dev/null 2>&1
-# 	fi
-# 	for j in 1 2 3
-# 	do
-# 		sudo bash -c "docker commit $(echo $pipeline_id) bcil/pipelines:RNAsequser_dockerui_tophat$(echo $i)_$(echo $j)" > /dev/null 2>&1
-# 		if [ "$IsCustomPath" = true ]; then
-# 			sudo bash -c "docker run --name RNAseq_dockerui_Tophat$(echo $i)_$(echo $j) -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):600$(echo $j):8090 bcil/pipelines:RNAsequser_dockerui_tophat$(echo $i)_$(echo $j) sh /home/init.sh" > /dev/null 2>&1
-# 		else
-# 			sudo bash -c "docker run --name RNAseq_dockerui_Tophat$(echo $i)_$(echo $j) -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):600$(echo $j):8090 bcil/pipelines:RNAsequser_dockerui_tophat$(echo $i)_$(echo $j) sh /home/init.sh" > /dev/null 2>&1
-# 		fi
-# 	done
-# 	docker stop $pipeline_id > /dev/null 2>&1
-# 	docker stop $(docker ps | grep "sequser_dockerui_" | awk '{print $1}') > /dev/null 2>&1
-# done
-
-echo "** Initializing DockerUI.."
->>>>>>> origin/master
 docker pull bcil/pipelines:dockerui
 docker rm -f dockerui > /dev/null 2>&1
 docker run --restart=always --privileged -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock --name dockerui bcil/pipelines:dockerui
@@ -298,4 +278,4 @@ else
 	printf "\n***************************************************\n** DockerUI is Ready! ( %s:9000 )\n***************************************************\n\n" "$dockerui_ip"
 fi
 
-exit 0
+exit
