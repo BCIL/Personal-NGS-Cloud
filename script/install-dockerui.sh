@@ -51,29 +51,6 @@ if [ "$port_chk" != "" ]; then
 	fi
 fi
 
-# while true; do
-# 	read -r -p "* Please provide DockerUI path: " dockerui_path
-# 	if [ ! -d $dockerui_path ]; then
-# 		while true; do
-# 			printf "[ERROR] - The path(%s) does not exist!" $dockerui_path
-# 			read -r -p "* Retype the path(R) or EXIT(E)? [R/E]: " retype_dockerui_path
-# 			if [ "$retype_dockerui_path" = "R" ] || [ "$retype_dockerui_path" = "r" ] || [ "$retype_dockerui_path" = "E" ] || [ "$retype_dockerui_path" = "e" ]; then
-# 				break
-# 			fi
-# 		done
-# 		if [ "$retype_dockerui_path" = "R" ] || [ "$retype_dockerui_path" = "r" ]; then
-# 			continue
-# 		elif [ "$retype_dockerui_path" = "E" ] || [ "$retype_dockerui_path" = "e" ]; then
-# 			printf '* Aborted.'
-# 			exit 1
-# 		else
-# 			break
-# 		fi
-# 	else
-# 		break
-# 	fi
-# done
-
 user_list=$(cut -d: -f1 /etc/passwd)
 dockerui_uname="dockerui"
 dockerui_passwd="dockerui"
@@ -161,41 +138,7 @@ else
 	fi
 fi
 
-# printf "* Installing git..\n"
-# command -v git >/dev/null 2>&1 || { apt-get install -y git > /dev/null 2>&1; }
-
-# printf "*****************************************************************\n** You may need to enter your GitHub account information below **\n*****************************************************************\n"
-# printf "* Cloning DockerUI into '/home/dockerui'...\n"
-# while true; do
-# 	git_login_chk=$( ($(git clone https://github.com/BCIL/DockerUI.git /home/dockerui)) 2>&1)
-# 	git_login_chk=$(echo $git_login_chk)
-# 	dir_exist_msg="fatal: destination path '/home/dockerui' already exists and is not an empty directory."
-# 	if [ "$git_login_chk" == "$dir_exist_msg" ]; then
-# 		echo ''
-# 		echo "* [WARN] - The path '/home/dockerui' will be replaced as the latest version"
-# 		while true; do
-# 			read -r -p " Please type [Y/y] to Replace the path or type [N/n] to Keep the current version: " dockerui_path_replace
-# 			if [ "$dockerui_path_replace" = "Y" ] || [ "$dockerui_path_replace" = "y" ] || [ "$dockerui_path_replace" = "N" ] || [ "$dockerui_path_replace" = "n" ]; then
-# 				break
-# 			fi
-# 		done
-# 		if [ "$dockerui_path_replace" = "Y" ] || [ "$dockerui_path_replace" = "y" ]; then
-# 			rm -rf /home/dockerui
-# 			continue
-# 		else
-# 			break
-# 		fi
-# 	fi
-# 	IFS=' ' read -ra arr <<< "$git_login_chk"
-# 	stdout_chk=$(echo ${arr[3]})
-# 	if [ "$stdout_chk" == "" ]; then
-# 		break
-# 	else
-# 		printf "\n* [ERROR] - Login Failed!, Please check your ID or password!\n\n"
-# 	fi
-# done
-echo ''
-printf "** Installing essential components.. 0%%"
+printf "\n** Installing essential components.. 0%%"
 sudo bash -c 'apt-get install -y install build-essential libssl-dev libcurl4-gnutls-dev libexpat1-dev gettext unzip' > /dev/null 2>&1
 printf " .. 10%%"
 command -v software-properties-common >/dev/null 2>&1 || { apt-get install -y software-properties-common > /dev/null 2>&1; }
@@ -217,38 +160,6 @@ command -v npm >/dev/null 2>&1 || { apt-get install -y npm > /dev/null 2>&1; }
 printf " .. 90%%"
 command -v grunt >/dev/null 2>&1 || { npm install -g grunt-cli > /dev/null 2>&1; }
 printf " .. 100%%, Done!\n"
-
-# printf "****************************************************\n** Please provide your Docker account information **\n****************************************************\n"
-# while true; do
-# 	docker_ver=$(echo $(docker --version))
-# 	IFS=',' read -ra arr <<< "$docker_ver"
-# 	IFS=' ' read -ra arr2 <<< "$docker_ver"
-# 	IFS='.' read -ra main_ver <<< "$docker_ver"
-# 	main_ver=$(echo ${main_ver[1]})
-#     if [[ "$main_ver" -lt 9 ]]; then
-#             chk_email='true'
-#     fi
-
-# 	echo "-----------------------------------------"
-# 	read -r -p " * Docker ID: " user_docker_id
-# 	read -s -p " * Password: " user_docker_pw
-# 	printf "\n"
-# 	if [ "$chk_email" == 'true' ]; then
-# 		read -r -p " * Email: " user_docker_email
-# 	fi
-# 	echo "-----------------------------------------"
-# 	if [ "$chk_email" == 'true' ]; then
-# 		docker_login_stdout=$( ($(docker login -u $user_docker_id -p $user_docker_pw -e $user_docker_email)) 2>&1)
-# 	else
-# 		docker_login_stdout=$( ($(docker login -u $user_docker_id -p $user_docker_pw)) 2>&1)
-# 	fi
-# 	if [[ "$docker_login_stdout" == *"Error"* ]] || [[ "$docker_login_stdout" == *"error"* ]]; then 
-# 		echo "* [ERROR] - Login Failed!, Please check your Docker ID or password!"
-# 	else
-# 		echo "* Login successfully! ($user_docker_id)"
-# 		break
-# 	fi
-# done
 
 hn=$(curl --max-time 1 http://169.254.169.254/latest/meta-data/public-hostname > /dev/null 2>&1)
 dockerui_ip=""
@@ -350,31 +261,10 @@ else
 	exit 1
 fi
 
-
-# for i in 1 2
-# do
-# 	if [ "$IsCustomPath" = true ]; then
-# 		pipeline_id=$(docker run -v $(echo $user_data_path):/home/data -ti -d bcil/pipelines:RNAsequser_tophat$(echo $i)_latest /bin/bash) > /dev/null 2>&1
-# 	else	
-# 		pipeline_id=$(docker run -v $(echo $BCIL_data_path):/home/data -ti -d bcil/pipelines:RNAsequser_tophat$(echo $i)_latest /bin/bash) > /dev/null 2>&1
-# 	fi
-# 	for j in 1 2 3
-# 	do
-# 		sudo bash -c "docker commit $(echo $pipeline_id) bcil/pipelines:RNAsequser_dockerui_tophat$(echo $i)_$(echo $j)" > /dev/null 2>&1
-# 		if [ "$IsCustomPath" = true ]; then
-# 			sudo bash -c "docker run --name RNAseq_dockerui_Tophat$(echo $i)_$(echo $j) -v $(echo $user_data_path):/home/data -d -p $(echo $dockerui_ip):600$(echo $j):8090 bcil/pipelines:RNAsequser_dockerui_tophat$(echo $i)_$(echo $j) sh /home/init.sh" > /dev/null 2>&1
-# 		else
-# 			sudo bash -c "docker run --name RNAseq_dockerui_Tophat$(echo $i)_$(echo $j) -v $(echo $BCIL_data_path):/home/data -d -p $(echo $dockerui_ip):600$(echo $j):8090 bcil/pipelines:RNAsequser_dockerui_tophat$(echo $i)_$(echo $j) sh /home/init.sh" > /dev/null 2>&1
-# 		fi
-# 	done
-# 	docker stop $pipeline_id > /dev/null 2>&1
-# 	docker stop $(docker ps | grep "sequser_dockerui_" | awk '{print $1}') > /dev/null 2>&1
-# done
-
-echo "** Initializing DockerUI.."
-docker pull baekdookim/dockerui
+echo "** Initializing DockerUI ** "
+docker pull bcil/pipelines:dockerui
 docker rm -f dockerui > /dev/null 2>&1
-docker run --restart=always --privileged -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock --name dockerui baekdookim/dockerui
+docker run --restart=always --privileged -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock --name dockerui bcil/pipelines:dockerui
 #sudo bash -c 'grunt --base /home/DockerUI --gruntfile /home/dockerui/gruntFile.js run' > /dev/null 2>&1
 
 if [ "$no_dataset" = "true" ]; then
@@ -383,4 +273,4 @@ else
 	printf "\n***************************************************\n** DockerUI is Ready! ( %s:9000 )\n***************************************************\n\n" "$dockerui_ip"
 fi
 
-exit
+exit 0
