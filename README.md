@@ -28,5 +28,8 @@ $ bash install-dockerui.sh
 ###`http://<dockerd host ip>:9000`
 
 ----
+
+Tested on Ubuntu.
+
 ### Check the [wiki](https://github.com/kevana/uifordocker/wiki) for more info about using UI For Docker
 
