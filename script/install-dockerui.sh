@@ -389,8 +389,8 @@ fi
 
 echo "** Initializing RNA-Seq (paired-end) pipeline instances.."
 
-pipeline_id=$(docker run -d $RNAseq_paired_image /bin/bash) > /dev/null 2>&1
-dui_chk=$(docker ps -a | grep RNA_Seq_dui_paired_end) > /dev/null 2>&1
+pipeline_id=$(docker run -d $RNAseq_paired_image bash /home/wait.sh) > /dev/null 2>&1
+dui_chk=$(docker ps -a | grep _dui_) > /dev/null 2>&1
 if [ "$dui_chk" != "" ]; then
         docker rm -f $(docker ps -a | grep RNA_Seq_dui_paired_end | awk '{print $1}') > /dev/null 2>&1
 		docker rm -f $(docker ps -a | grep RNA_Seq_paired-end | awk '{print $1}') > /dev/null 2>&1
@@ -399,7 +399,6 @@ fi
 printf "\n***************** Required RNA-Seq tool options ******************\n* Input_path\n* Reference Genome path\n* Mate Inner Distance\n* Anchor Length\n* Minimum length of read segments\n***************************************************\n\n"
 
 
-docker rm -f $(docker ps -a | grep "_dui_" | awk '{print $1}') > /dev/null 2>&1
 image_name="bcil/pipelines:RNA_Seq_dui_paired_end"
 sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
 sudo bash -c "docker run --privileged --name RNA_Seq_paired-end $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p 8090 --env mate_std_dev='' --env anchor_length='' --env segment_length='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
