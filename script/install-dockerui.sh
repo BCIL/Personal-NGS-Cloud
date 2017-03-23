@@ -25,7 +25,7 @@ fi
 if [ "$user_os" = "Linux" ]; then
 	command -v lsof >/dev/null 2>&1 || { echo >&2 "** Installing lsof.."; apt-get install -y lsof > /dev/null 2>&1; }
 	#command -v samba >/dev/null 2>&1 || { echo >&2 "** Installing samba.."; apt-get install -y samba > /dev/null 2>&1; }
-	command -v docker >/dev/null 2>&1 || { echo >&2 "** Installing Docker.."; wget -qO- https://get.docker.com/ | sh > /dev/null 2>&1; }
+	command -v sudo docker >/dev/null 2>&1 || { echo >&2 "** Installing Docker.."; wget -qO- https://get.docker.com/ | sh > /dev/null 2>&1; }
 else
 	command -v brew >/dev/null 2>&1 || { echo >&2 "** Installing Homebrew.."; /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)" > /dev/null 2>&1; }
 	command -v $app >/dev/null 2>&1 || { echo >&2 "** Installing Docker.."; brew install docker; }
@@ -35,7 +35,7 @@ fi
 port_chk=$(lsof -i :9000)
 if [ "$port_chk" != "" ]; then
 	while true; do
-		printf "* A network port 9000 is already taken. Would you like to terminate Docker container that takes port 9000?"
+		printf "* A network port 9000 is already taken. Would you like to terminate sudo docker container that takes port 9000?"
 		read -r -p "[Y/N]: " close_port_yn
 		if [ "$close_port_yn" = "Y" ] || [ "$close_port_yn" = "y" ] || [ "$close_port_yn" = "N" ] || [ "$close_port_yn" = "n" ]; then
 			break
@@ -43,11 +43,11 @@ if [ "$port_chk" != "" ]; then
 	done
 	if [ "$close_port_yn" = "Y" ] || [ "$close_port_yn" = "y" ]; then
 		#kill -9 $(lsof -i :9000 | awk -F ' ' '{print $2}' | sed 1d)
-		docker stop $(docker ps | grep ":9000" | awk '{print $1}') > /dev/null 2>&1
-		docker rm -f DockerUI_main > /dev/null 2>&1
+		sudo docker stop $(sudo docker ps | grep ":9000" | awk '{print $1}') > /dev/null 2>&1
+		sudo docker rm -f DockerUI_main > /dev/null 2>&1
 		port_chk=$(lsof -i :9000)
 		if [ "$port_chk" != "" ]; then
-			printf "* ERROR: Failed to make port 9000 available.\n The port 9000 is not occupied by docker container. \n Aborted. \n"
+			printf "* ERROR: Failed to make port 9000 available.\n The port 9000 is not occupied by sudo docker container. \n Aborted. \n"
 			exit 1
 		fi
 	else
@@ -60,7 +60,7 @@ fi
 port_chk=$(lsof -i :9090)
 if [ "$port_chk" != "" ]; then
 	while true; do
-		printf "* A network port 9090 is already taken. Would you like to terminate Docker container that takes port 9090?"
+		printf "* A network port 9090 is already taken. Would you like to terminate sudo docker container that takes port 9090?"
 		read -r -p "[Y/N]: " close_port_yn
 		if [ "$close_port_yn" = "Y" ] || [ "$close_port_yn" = "y" ] || [ "$close_port_yn" = "N" ] || [ "$close_port_yn" = "n" ]; then
 			break
@@ -68,11 +68,11 @@ if [ "$port_chk" != "" ]; then
 	done
 	if [ "$close_port_yn" = "Y" ] || [ "$close_port_yn" = "y" ]; then
 		#kill -9 $(lsof -i :9090 | awk -F ' ' '{print $2}' | sed 1d)
-		docker stop $(docker ps | grep ":9090" | awk '{print $1}') > /dev/null 2>&1
+		sudo docker stop $(sudo docker ps | grep ":9090" | awk '{print $1}') > /dev/null 2>&1
 		port_chk=$(lsof -i :9090)
-		docker rm -f DockerUI_sub > /dev/null 2>&1
+		sudo docker rm -f DockerUI_sub > /dev/null 2>&1
 		if [ "$port_chk" != "" ]; then
-			printf "* ERROR: Failed to make port 9090 available.\n The port 9090 is not occupied by docker container. \n Aborted. \n"
+			printf "* ERROR: Failed to make port 9090 available.\n The port 9090 is not occupied by sudo docker container. \n Aborted. \n"
 			exit 1
 		fi
 	else
@@ -306,36 +306,36 @@ echo "** IP Address: $dockerui_ip"
 echo ""
 
 echo "** Initializing 'Personal NGS Cloud' and 'File Manager' ** "
-docker pull bcil/pipelines:Dockerui > /dev/null 2>&1
-docker pull bcil/pipelines:Dockerui_filemanager > /dev/null 2>&1
-docker rm -f DockerUI_main > /dev/null 2>&1
-docker rm -f DockerUI_sub > /dev/null 2>&1
+sudo docker pull bcil/pipelines:Dockerui > /dev/null 2>&1
+sudo docker pull bcil/pipelines:Dockerui_filemanager > /dev/null 2>&1
+sudo docker rm -f DockerUI_main > /dev/null 2>&1
+sudo docker rm -f DockerUI_sub > /dev/null 2>&1
 
-docker run --restart=always --privileged -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock --name DockerUI_main bcil/pipelines:Dockerui > /dev/null 2>&1
+sudo docker run --restart=always --privileged -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock --name DockerUI_main bcil/pipelines:Dockerui > /dev/null 2>&1
 if [ "$user_os" = "Linux" ]; then
-	docker run --restart=always --privileged -d -p 9090:8090 -v /dev/bus/usb/:/dev/bus/usb -v /:/home/root --name DockerUI_sub bcil/pipelines:Dockerui_filemanager bash /home/init.sh $fileManager_root_path > /dev/null 2>&1
+	sudo docker run --restart=always --privileged -d -p 9090:8090 -v /dev/bus/usb/:/dev/bus/usb -v /:/home/root --name DockerUI_sub bcil/pipelines:Dockerui_filemanager bash /home/init.sh $fileManager_root_path > /dev/null 2>&1
 else
-	docker run --restart=always --privileged -d -p 9090:8090 -v /:/home/root --name DockerUI_sub bcil/pipelines:Dockerui_filemanager bash /home/init.sh $fileManager_root_path > /dev/null 2>&1
+	sudo docker run --restart=always --privileged -d -p 9090:8090 -v /:/home/root --name DockerUI_sub bcil/pipelines:Dockerui_filemanager bash /home/init.sh $fileManager_root_path > /dev/null 2>&1
 fi
 
-docker_sub_id=$(docker ps | grep 'DockerUI_sub' | awk '{print $1}')
+docker_sub_id=$(sudo docker ps | grep 'DockerUI_sub' | awk '{print $1}')
 
 ChIPseq_single_image="bcil/pipelines:ChIPseq_dockerui_single"
 ChIPseq_paired_image="bcil/pipelines:ChIPseq_dockerui_paired"
 RNAseq_paired_image="bcil/pipelines:RNAseq_dockerui_paired"
 
 # echo "** Pulling ChIP-Seq (single-end) pipeline.."
-# sudo bash -c "docker pull $ChIPseq_single_image" > /dev/null
+# sudo bash -c "sudo docker pull $ChIPseq_single_image" > /dev/null
 # echo "** Pulling ChIP-Seq (paired-end) pipeline.."
-# sudo bash -c "docker pull $ChIPseq_paired_image" > /dev/null
+# sudo bash -c "sudo docker pull $ChIPseq_paired_image" > /dev/null
 
 echo "** Pulling RNA-Seq pipelines"
-sudo bash -c "docker pull $RNAseq_paired_image" > /dev/null
+sudo bash -c "sudo docker pull $RNAseq_paired_image" > /dev/null
 
 echo "** Removing old Dockerui instances..."
-docker stop $(docker ps | grep "_dui_" | awk '{print $1}') > /dev/null 2>&1
-docker rm -f $(docker ps -a | grep "_dui_" | awk '{print $1}') > /dev/null 2>&1
-docker rmi -f $(docker images | grep "_dui_" | awk '{print $3}') > /dev/null 2>&1
+sudo docker stop $(sudo docker ps | grep "_dui_" | awk '{print $1}') > /dev/null 2>&1
+sudo docker rm -f $(sudo docker ps -a | grep "_dui_" | awk '{print $1}') > /dev/null 2>&1
+sudo docker rmi -f $(sudo docker images | grep "_dui_" | awk '{print $3}') > /dev/null 2>&1
 
 if [ $(which mysql) ]; then
 	mount_mysql="-v /var/run/mysqld/mysqld.sock:/var/run/mysqld/mysqld.sock"
@@ -343,8 +343,8 @@ else
 	mount_mysql=""
 fi
 
-######### Docker running command (SAMPLE)
-## docker run --volumes-from b6dfb3a33e5c --env input_path="/home/BCIL_pipeline_runs/input/RNAseq" --env ref_path="/home/BCIL_pipeline_runs/input/hg38" -ti bcil/pipelines:RNAseq_dockerui_paired bash /home/init.sh
+######### sudo docker running command (SAMPLE)
+## sudo docker run --volumes-from b6dfb3a33e5c --env input_path="/home/BCIL_pipeline_runs/input/RNAseq" --env ref_path="/home/BCIL_pipeline_runs/input/hg38" -ti bcil/pipelines:RNAseq_dockerui_paired bash /home/init.sh
 ##########################################
 
 # printf "***************** ChIP-Seq tool options ******************\n* Mate Inner Distance: 200\n* p_value='0.01\n* gsize='3000000000\n***************************************************\n\n"
@@ -353,63 +353,63 @@ fi
 ################### ChIP-Seq (single-end) ###################
 
 # echo "** Initializing ChIP-Seq (single-end) pipeline instances.."
-# pipeline_id=$(docker run -d $ChIPseq_single_image bash /home/wait.sh) > /dev/null 2>&1
+# pipeline_id=$(sudo docker run -d $ChIPseq_single_image bash /home/wait.sh) > /dev/null 2>&1
 
 # for i in $ChIP_Seq_inst_list
 # do
-# 	docker rm -f ChIPseq_S_dui_$(echo $i) > /dev/null 2>&1
+# 	sudo docker rm -f ChIPseq_S_dui_$(echo $i) > /dev/null 2>&1
 # 	image_name="bcil/pipelines:ChIPseq_dui_single_$(echo $i)"
-# 	sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
-# 	sudo bash -c "docker run --privileged --name ChIPseq_S_dui_$(echo $i) $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env input_path=$(echo $chipseq_single_input_path) --env ref_path=$(echo $bowtie_index_path) $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+# 	sudo bash -c "sudo docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
+# 	sudo bash -c "sudo docker run --privileged --name ChIPseq_S_dui_$(echo $i) $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env input_path=$(echo $chipseq_single_input_path) --env ref_path=$(echo $bowtie_index_path) $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 # done
 
-# docker stop $pipeline_id > /dev/null 2>&1
-# docker rm -f $pipeline_id > /dev/null 2>&1
-# docker stop $(docker ps | grep "_dui_single_" | awk '{print $1}') > /dev/null 2>&1
+# sudo docker stop $pipeline_id > /dev/null 2>&1
+# sudo docker rm -f $pipeline_id > /dev/null 2>&1
+# sudo docker stop $(sudo docker ps | grep "_dui_single_" | awk '{print $1}') > /dev/null 2>&1
 
 
 
 ################### ChIP-Seq (paired-end) ###################
 
 # echo "** Initializing ChIP-Seq (paired-end) pipeline instances.."
-# pipeline_id=$(docker run -d $ChIPseq_paired_image bash /home/wait.sh) > /dev/null 2>&1
+# pipeline_id=$(sudo docker run -d $ChIPseq_paired_image bash /home/wait.sh) > /dev/null 2>&1
 
 # for i in $ChIP_Seq_inst_list
 # do
-# 	docker rm -f ChIPseq_P_dui_$(echo $i) > /dev/null 2>&1
+# 	sudo docker rm -f ChIPseq_P_dui_$(echo $i) > /dev/null 2>&1
 # 	image_name="bcil/pipelines:ChIPseq_dui_paired_$(echo $i)"
-# 	sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
-# 	sudo bash -c "docker run --privileged --name ChIPseq_P_dui_$(echo $i) $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env input_path=$(echo $chipseq_paired_input_path) --env ref_path=$(echo $bowtie_index_path) $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+# 	sudo bash -c "sudo docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
+# 	sudo bash -c "sudo docker run --privileged --name ChIPseq_P_dui_$(echo $i) $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env input_path=$(echo $chipseq_paired_input_path) --env ref_path=$(echo $bowtie_index_path) $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 # done
 
-# docker stop $pipeline_id > /dev/null 2>&1
-# docker rm -f $pipeline_id > /dev/null 2>&1
-# docker stop $(docker ps | grep "_dui_paired_" | awk '{print $1}') > /dev/null 2>&1
+# sudo docker stop $pipeline_id > /dev/null 2>&1
+# sudo docker rm -f $pipeline_id > /dev/null 2>&1
+# sudo docker stop $(sudo docker ps | grep "_dui_paired_" | awk '{print $1}') > /dev/null 2>&1
 
 
 echo "** Initializing RNA-Seq (paired-end) pipeline instances.."
 
-pipeline_id=$(docker run -d $RNAseq_paired_image bash /home/wait.sh) > /dev/null 2>&1
-dui_chk=$(docker ps -a | grep _dui_) > /dev/null 2>&1
+pipeline_id=$(sudo docker run -d $RNAseq_paired_image bash /home/wait.sh) > /dev/null 2>&1
+dui_chk=$(sudo docker ps -a | grep _dui_) > /dev/null 2>&1
 if [ "$dui_chk" != "" ]; then
-        docker rm -f $(docker ps -a | grep RNA_Seq_dui_paired_end | awk '{print $1}') > /dev/null 2>&1
-		docker rm -f $(docker ps -a | grep RNA_Seq_paired-end | awk '{print $1}') > /dev/null 2>&1
+        sudo docker rm -f $(sudo docker ps -a | grep RNA_Seq_dui_paired_end | awk '{print $1}') > /dev/null 2>&1
+		sudo docker rm -f $(sudo docker ps -a | grep RNA_Seq_paired-end | awk '{print $1}') > /dev/null 2>&1
 fi
 
 printf "\n***************** Required RNA-Seq tool options ******************\n* Input_path\n* Reference Genome path\n* Mate Inner Distance\n* Anchor Length\n* Minimum length of read segments\n***************************************************\n\n"
 
 
 image_name="bcil/pipelines:RNA_Seq_dui_paired_end"
-sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
-sudo bash -c "docker run --privileged --name RNA_Seq_paired-end $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p 8090 --env mate_std_dev='' --env anchor_length='' --env segment_length='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+sudo bash -c "sudo docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
+sudo bash -c "sudo docker run --privileged --name RNA_Seq_paired-end $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p 8090 --env mate_std_dev='' --env anchor_length='' --env segment_length='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 
-docker stop $pipeline_id > /dev/null 2>&1
-docker rm -f $pipeline_id > /dev/null 2>&1
-docker stop $(docker ps | grep "_dui_" | awk '{print $1}') > /dev/null 2>&1
+sudo docker stop $pipeline_id > /dev/null 2>&1
+sudo docker rm -f $pipeline_id > /dev/null 2>&1
+sudo docker stop $(sudo docker ps | grep "_dui_" | awk '{print $1}') > /dev/null 2>&1
 
 
 printf '** Instances are generated.\n*********************************************\n'
-docker ps -a | grep _dui | awk '{print $2}'
+sudo docker ps -a | grep _dui | awk '{print $2}'
 printf '*********************************************\n\n'
 
 
@@ -442,15 +442,15 @@ exit
 #!/usr/bin/env bash
 
 RNAseq_paired_image="bcil/pipelines:RNAseq_dockerui_paired"
-docker_sub_id=$(docker ps | grep 'DockerUI_sub' | awk '{print $1}')
+docker_sub_id=$(sudo docker ps | grep 'DockerUI_sub' | awk '{print $1}')
 
 echo "** Pulling RNA-Seq pipelines"
-sudo bash -c "docker pull $RNAseq_paired_image" > /dev/null
+sudo bash -c "sudo docker pull $RNAseq_paired_image" > /dev/null
 
 echo "** Removing old Dockerui instances..."
-docker stop $(docker ps | grep "_dui" | awk '{print $1}') > /dev/null 2>&1
-docker rm -f $(docker ps -a | grep "_dui" | awk '{print $1}') > /dev/null 2>&1
-docker rmi -f $(docker images | grep "_dui" | awk '{print $3}') > /dev/null 2>&1
+sudo docker stop $(sudo docker ps | grep "_dui" | awk '{print $1}') > /dev/null 2>&1
+sudo docker rm -f $(sudo docker ps -a | grep "_dui" | awk '{print $1}') > /dev/null 2>&1
+sudo docker rmi -f $(sudo docker images | grep "_dui" | awk '{print $3}') > /dev/null 2>&1
 
 # if [ $(which mysql) ]; then
 #         mount_mysql="-v /var/run/mysqld/mysqld.sock:/var/run/mysqld/mysqld.sock"
@@ -460,24 +460,25 @@ docker rmi -f $(docker images | grep "_dui" | awk '{print $3}') > /dev/null 2>&1
 
 echo "** Initializing RNA-Seq (paired-end) pipeline instances.."
 
-pipeline_id=$(docker run -d $RNAseq_paired_image bash /home/wait.sh)
-dui_chk=$(docker ps -a | grep RNA_Seq_paired_end_dui)
+pipeline_id=$(sudo docker run -d $RNAseq_paired_image bash /home/wait.sh)
+dui_chk=$(sudo docker ps -a | grep RNA_Seq_paired_end_dui)
 if [ "$dui_chk" != "" ]; then
-        docker rm -f $(docker ps -a | grep RNA_Seq_paired_end_dui | awk '{print $1}')
+        sudo docker rm -f $(sudo docker ps -a | grep RNA_Seq_paired_end_dui | awk '{print $1}')
 fi
 
 printf "\n***************** Required RNA-Seq tool options ******************\n* Input_path\n* Reference Genome path\n* Mate Inner Distance\n* Anchor Length\n* Minimum length of read segments\n***************************************************\n\n"
 
-docker rm -f RNA_Seq_paired_end_dui
+sudo docker rm -f RNA_Seq_paired_end_dui
 image_name="bcil/pipelines:RNA_Seq_dui_paired_end"
-sudo bash -c "docker commit $(echo $pipeline_id) $(echo $image_name)"
-sudo bash -c "docker run --privileged --name RNA_Seq_paired-end --volumes-from $(echo $docker_sub_id) -d -p 8090 --env mate_std_dev='' --env anchor_length='' --env segment_length='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh"
+sudo bash -c "sudo docker commit $(echo $pipeline_id) $(echo $image_name)"
+sudo bash -c "sudo docker run --privileged --name RNA_Seq_paired-end --volumes-from $(echo $docker_sub_id) -d -p 8090 --env mate_std_dev='' --env anchor_length='' --env segment_length='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh"
 
-docker stop $pipeline_id
-docker rm -f $pipeline_id
-docker stop $(docker ps | grep "RNA_Seq_dui_paired_end" | awk '{print $1}')
+sudo docker stop $pipeline_id
+sudo docker rm -f $pipeline_id
+sudo docker stop $(sudo docker ps | grep "RNA_Seq_dui_paired_end" | awk '{print $1}')
 
 
 printf '** Instances are generated.\n*********************************************\n'
-docker ps -a | grep _dui | awk '{print $2}'
+sudo docker ps -a | grep _dui | awk '{print $2}'
 printf '*********************************************\n\n'
+
