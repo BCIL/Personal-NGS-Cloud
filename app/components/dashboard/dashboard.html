@@ -1,0 +1,80 @@
+<div>
+    <div class="row">
+        <div class="col-xs-12">
+            <aside>
+                <h3>Available Pipelines</h3>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th id="dash_sort_th" class="prepare_title" ng-click="order('Names[0]')">Pipeline Name
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Names[0]'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                            <th id="dash_sort_th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="container in containers | filter:get_baseInstance | orderBy:sortKey:reverse">
+                            <td><a href='#/containers/{{ container.Id }}/'><span ng-click='start()' class="prepare_btn btn btn-primary btn-sm">Prepare pipeline here</span></td>
+                            <td class="prepare_btn">{{ container|get_baseInstance}}</td>
+                            <td>{{ containers|chk_containers }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <hr />
+                <h3>Pipeline Instances</h3>
+                <div class="pull-right form-inline" id="displayAll_chk">
+                    <input type="checkbox" ng-init="Settings.displayAll=true" ng-model="displayAll" id="displayAll" ng-change="toggleGetAll()" />
+                    <label for="displayAll" ng-show="">Display All</label>&nbsp;&nbsp;
+                </div>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Run / Stop</th>
+                            <th id="dash_sort_th" ng-click="order('Names[0]')">Pipeline ID (username)
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Names[0]'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                            <th id="dash_sort_th" ng-click="order('Image')">Pipeline Name
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Image'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                            <th id="dash_sort_th" ng-click="order('Created')">Created
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Created'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                            <th id="dash_sort_th" ng-click="order('Status')">Status
+                            <span class="glyphicon sort-icon" ng-show="sortKey=='Status'" ng-class="{'glyphicon-chevron-up':reverse,'glyphicon-chevron-down':!reverse}"></span></th>
+                            <th id="dash_sort_th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="container in containers | filter:myFilter | orderBy:sortKey:reverse">
+                            <td><a href='#/containers/{{ container.Id }}/'><span ng-click='start()' class="btn btn-{{ container.Status|runstopbtn}} btn-xs">{{ container.Status|runstopbtn_text }}</span></td>
+                            <td>{{ container|containername}}</td>
+                            <td>{{ container|reponameOnly }}</td>
+                            <td>{{ container|getStartedTime }}</td>
+                            <td><span class="label label-{{ container.Status|statusbadge }}" style="font-size:12px">{{ container.Status|dashboard_status }}</span></td>
+                            <td><a href="#/containers/{{ container.Id }}/delete"/><span class="btn btn-danger btn-xs" >Remove</span>
+                            </td>
+                            <td>{{ containers|chk_containers }}</td>
+                        </tr>
+                    </tbody>
+               </table>
+            </aside>
+            <hr />
+            <aside style="float: left">
+                <div class="status_chart_group">
+                    <h3>Status</h3>
+                    <canvas id="containers-chart" style="width:'75%';height:'75%'">
+                        <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a
+                                href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+                    </canvas>
+                    <div id="chart-legend" style="margin-left:10%"></div>
+                </div>
+            </aside>
+            <aside style="float: left; margin-left: 20%">
+                <div class="occupied_ports_group">
+                    <h3>Running Pipelines</h3>
+                    <ul id="occupied_ports" ng-repeat="container in containers | filter:myFilter | filter:chk_dui">
+                        <li> {{ container.Names | list_to_str }} - <b>{{ container.Image | get_image_name }}</b> </li>
+                    </ul>
+                </div>
+
+            </aside>
+        </div>
+    </div>
+</div>

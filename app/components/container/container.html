@@ -1,0 +1,226 @@
+<div class="detail">
+
+    <div ng-if="!container.edit">
+        <h3>Pipeline: {{ container.Config | tagnameOnly }}</h4>
+        <h4 id="base_name">Username: {{ container.Name }}
+            <button class="btn btn-primary btn-xs" id="rename_btn"
+                    ng-click="container.edit = true;" style="display:none">Rename
+            </button>
+        </h3>
+    </div>
+    <!-- <div ng-if="container.edit">
+        <h4>
+            Enter Your Name/ID:
+            <input type="text" id="rename_input" ng-model="container.newContainerName">
+            <button class="btn btn-success"
+                    ng-click="renameContainer()">Save
+            </button>
+            <button class="btn btn-danger"
+                    ng-click="container.edit = false;">&times;</button>
+        </h4>
+    </div> -->
+
+    <div class="btn-group detail">
+        <button class="btn btn-success"
+                ng-click="start()"
+                ng-show="!container.State.Running && !container.edit">Run pipeline
+        </button>
+        <button class="btn btn-info"
+                ng-click="pause()"
+                ng-show="container.State.Running && !container.State.Paused">Pause pipeline
+        </button>
+        <button class="btn btn-success"
+                ng-click="unpause()"
+                ng-show="container.State.Running && container.State.Paused">Unpause pipeline
+        </button>
+        <button class="btn btn-warning"
+                ng-click="stop()"
+                ng-show="container.State.Running && !container.State.Paused">Save/Stop pipeline
+        </button>
+        <button class="btn btn-danger"
+                ng-click="kill()"
+                ng-show="container.State.Running && !container.State.Paused">Disregard/Stop pipeline
+        </button>
+        <button class="btn btn-primary"
+                ng-click="restart()"
+                ng-show="container.State.Running && !container.State.Stopped">Restart pipeline
+        </button>
+    </div>
+
+    <table class="table table-striped">
+        <tbody>
+        <tr ng-show="!editEnv">
+            <td>State:</td>
+            <td>
+                <li>
+                    <span class="label {{ container.State|getstatelabel }} style='font-size:12px'">{{ container.State|getstatetext }}</span>
+                </li>
+            </td>
+        </tr>
+        <tr>
+            <td ng-show="!editEnv">Pipeline options:</td>
+            <td ng-show="editEnv">Please fill all input boxes:</td>
+            <td>
+                <div ng-show="!editEnv">
+                    <button class="btn btn-default btn-xs pull-right" id="options_input" ng-click="editEnv = true" style="display:none"><i class="glyphicon glyphicon-pencil"></i> Edit</button>
+                    <div ng-repeat="k in container.Config.Env">
+                    <h5 ng-show="k.includes('mate_std_dev')"> Bowtie2 option</h5>
+                    <h5 ng-show="k.includes('anchor_length') || k.includes('insert_size')"> MACS tool option</h5>
+                    <h5 ng-show="k.includes('input_path')"> Input dataset path</h5>
+                    <h5 ng-show="k.includes('ref_path')"> Bowtie2 indices path</h5>
+                    <li>{{ k }}</li>
+                    </div>
+
+                    <h5>Galaxy Server</h5>
+                    <li ng-repeat="(containerport, hostports) in container.HostConfig.PortBindings">
+                    {{ containerport }} =>
+                        <span class="label label-default" style="margin-right: 5px; font-size: 13px" ng-repeat="(k,v) in hostports">{{ v.HostIp }}:{{ v.HostPort }}</span>
+                    </li>
+                </div>
+                    <div class="form-group" ng-show="editEnv">
+                        <div ng-if="editEnv" style="margin-top:5px">
+                            <div class="form-group form-inline">
+                                <div class="form-group">
+                                    <label class="sr-only">Variable Name:</label>
+                                    <input type="text" value="Your Run Name" class="form-control input-sm" disabled />
+                                </div>
+                                <br/>
+                                <div class="form-group form-inline">
+                                    <form name="name_input">
+                                        <input type="text" ng-model="container.newContainerName" ng-init="container.newContainerName=''" ng-minlength="3" class="form-control input-sm" id="name_value_ele" placeholder="new name (3 characters minimum)" style="width: 400px" required>
+                                        <span ng-show="!container.newContainerName.length" style="color:red"> Required!</span>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div ng-repeat="envar in newCfg.Env">
+                            <form name="input_form" novalidate novalidate>
+                                <div class="form-group form-inline">
+                                    <div class="form-group">
+                                        <label class="sr-only">Variable Name:</label>
+                                        <input type="text" ng-model="envar.name" class="form-control input-sm"
+                                            placeholder="NAME" disabled />
+                                            <button ng-show="envar.name.includes('_path')" class="btn btn-sm btn-success" data-toggle="modal" data-target="#fm_modal">Path</button>
+
+                                                <div class="modal fade" id="fm_modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+                                                <div class="modal-dialog modal-lg">
+                                                    <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                                                        <h4 class="modal-title" id="myModalLabel">File Manager </h4>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <iframe id=fileManager_iframe ng-src="{{fm_addr}}" frameborder="0" allowtransparency="true" width="100%" height="700px"></iframe>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                                                    </div>
+                                                    </div>
+                                                </div>
+                                                </div>
+                                            <span style="font-size:11px;font-weight:bold">
+                                            <span ng-show="envar.name.includes('mate_std_dev') || envar.name.includes('insert_size')"> Bowtie2 option</span>
+                                            <span ng-show="envar.name.includes('_length') ||
+                                            envar.name.includes('pvalue') || envar.name.includes('gsize') || 
+                                            envar.name.includes('bwidth')"> MACS tool option</span>
+                                            <span ng-show="envar.name.includes('input_path')"> Input dataset path</span>
+                                            <span ng-show="envar.name.includes('ref_path')"> Bowtie2 indices path</span>
+                                            </span>
+                                    </div>
+                                    <br/>
+                                    <div class="form-group">
+                                        
+                                            <label class="sr-only">Variable Value:</label>
+                                            <input type="text" name="input_form_{{$index}}" ng-model="envar.value" class="form-control input-sm" style="width: 400px"
+                                            placeholder="value" required />
+                                            <span ng-show="input_form['input_form_' + $index].$error.required" style="color:red"> Required!</span>
+                                        
+                                    </div>
+                                    <!-- <div class="form-group">
+                                        <button class="btn btn-danger btn-sm input-sm form-control"
+                                                ng-click="rmEntry(newCfg.Env, envar)"><i class="glyphicon glyphicon-remove"></i>
+                                        </button>
+                                    </div> -->
+                                </div>
+                            </form>
+                        </div>
+                        <div ng-repeat="(containerport, hostports) in newCfg.Ports" style="margin-bottom: 5px;">
+                            <label>Galaxy Server address</label>
+                            <div>
+                                <div ng-repeat="(k,v) in hostports" class="form-group form-inline">
+                                    <div class="form-group">
+                                        <input type="text" id="hostIp_input" ng-model="v.HostIp" ng-init="v.HostIp=hostIpAddress" class="form-control input-sm" placeholder="IP address, ex. 0.0.0.0"/>
+                                    </div>
+                                    <div class="form-group">
+                                        <form name="form_port">
+                                            <input type="text" name="input_port" ng-model="v.HostPort" class="form-control input-sm"
+                                                placeholder="Port (4-digit)" ng-pattern="/^\d{4}$/" required/>
+                                            <span ng-show="!form_port.input_port.$valid || form_port.$error.required" style="color:red"> 4-digit required</span>
+                                        </form>
+                                    </div>
+                                    <div class="form-group" style="display:none">
+                                        <button class="btn btn-danger btn-sm input-sm form-control"
+                                                ng-click="rmEntry(hostports, v)"><i class="glyphicon glyphicon-remove"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm"
+                                    ng-click="addEntry(hostports, {HostIp: '0.0.0.0', HostPort: ''})" style="display:none"><i class="glyphicon glyphicon-plus"></i> Add
+                            </button>
+                        </div>
+                        <!-- <button type="button" class="btn btn-success btn-sm"
+                                ng-click="addEntry(newCfg.Env, {name: '', value: ''})"><i class="glyphicon glyphicon-plus"></i> Add
+                        </button> -->
+                        <div>
+                            <button class="btn btn-primary btn-sm" ng-disabled="input_form.$invalid"
+                                    ng-click="restartEnv()"
+                                    >Save as new instance
+                            </button>
+                            <button class="btn btn-default btn-sm"
+                                    ng-click="cancel()" style="display:none">Cancel
+                            </button>
+                        </div>
+                        <div ng-show="container.State.Running || container.State.Paused || container.State.Restarting">
+                        <h4> Generating new instance only allowed when the pipeline does not running. </h4>
+                        <button class="btn btn-default btn-sm"
+                                ng-click="cancel()">Go Back
+                        </button>
+                        </div>
+                    </div>
+            </td>
+        </tr>
+        <tr>
+            <td>Galaxy Server:</td>
+            <td id="galaxy_server_info">
+                <li id="galaxy_server_ip" ng-repeat="(containerport, hostports) in container.HostConfig.PortBindings">
+                    <span class="label label-primary" ng-repeat="(k,v) in hostports"><a href="http://{{ v.HostIp }}:{{ v.HostPort }}" target="_blank" style="color: white; font-size: 1.2em">{{ v.HostIp }}:{{ v.HostPort }}</a></span>
+                </li>
+            </td>
+        </tr>
+        <tr ng-show="!editEnv">
+            <td>Output / Error messages:</td>
+            <td>
+                <li>
+                    <a href="#/containers/{{ container.Id }}/logs">Output / Error messages</a>
+                </li>
+            </td>
+        </tr>
+        <tr ng-show="!editEnv">
+            <td>System Stats:</td>
+            <td>
+                <li>
+                    <a href="#/containers/{{ container.Id }}/stats">Stats</a>
+                </li>
+            </td>
+        </tr>
+        <tr ng-show="!editEnv">
+            <td style="color:red;">Remove:</td>
+            <td>
+                <button class="btn btn-large btn-block btn-primary btn-danger" ng-click="remove()" style="display:inline">Remove this instance</button>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    <hr />
+</div>
