@@ -104,7 +104,6 @@ fi
 # 	printf "\n* The username 'dockerui' is already exist.\n  You will need to provide the user 'dockerui' confidential when you setup the shared input location (btw Linux and Windows).\n\n"
 # fi
 
-ChIP_Seq_inst_list="5010 5020"
 #############
 #Preselect filemanager root path
 #############
@@ -133,128 +132,7 @@ fi
 # 	fi
 # done
 
-######  Deprecated
-## Request user input data path  -> won't be required.
-######################################################################################
 
-# printf "\n\t**********************************************************\n"
-# printf "\t** Please provide your input data path to each pipeline **\n"
-# printf "\t**********************************************************\n\n"
-
-# while true; do
-# 	printf "* Please provide your 'ChIP-Seq (single-end)' pipeline input path: \n"
-# 	read -r -p "  > " chipseq_single_input_path
-# 	if [ $(echo -n $chipseq_single_input_path | tail -c 1) = '/' ]; then
-# 		chipseq_single_input_path=$(echo ${chipseq_single_input_path%?})
-# 	fi
-
-# 	if [ ! -d $chipseq_single_input_path ]; then
-# 		echo "The input path does not exist! Please check and enter the correct path."
-# 	else
-# 		if (( "$(ls $chipseq_single_input_path 2>/dev/null | wc -l )" > 0 )); then
-# 			break
-# 		else
-# 			printf "[WARN] - The input path is empty!. \n"
-# 			while true; do
-# 				read -r -p "CONTINUE? [Y/N]" empty_input_yn
-# 				if [ "$empty_input_yn" = "Y" ] || [ "$empty_input_yn" = "y" ] || [ "$empty_input_yn" = "N" ] || [ "$empty_input_yn" = "n" ]; then
-# 	 				break
-# 	 			fi
-# 	 		done
-#  			if [ "$empty_input_yn" = "Y" ] || [ "$empty_input_yn" = "y" ]; then
-#  				break
-#  			fi
-# 		fi
-# 	fi
-# done
-
-# while true; do
-# 	printf "* Please provide your 'ChIP-Seq (paired-end)' pipeline input path: \n"
-# 	read -r -p "  > " chipseq_paired_input_path
-# 	if [ $(echo -n $chipseq_paired_input_path | tail -c 1) = '/' ]; then
-# 		chipseq_paired_input_path=$(echo ${chipseq_paired_input_path%?})
-# 	fi
-
-# 	if [ ! -d $chipseq_paired_input_path ]; then
-# 		echo "The input path does not exist! Please check and enter the correct path."
-# 	else
-# 		if (( "$(ls $chipseq_single_input_pat 2>/dev/null | wc -l )" > 0 )); then
-# 			break
-# 		else
-# 			printf "[WARN] - The input path is empty!. \n"
-# 			while true; do
-# 				read -r -p "CONTINUE? [Y/N]" empty_input_yn
-# 				if [ "$empty_input_yn" = "Y" ] || [ "$empty_input_yn" = "y" ] || [ "$empty_input_yn" = "N" ] || [ "$empty_input_yn" = "n" ]; then
-# 	 				break
-# 	 			fi
-# 	 		done
-#  			if [ "$empty_input_yn" = "Y" ] || [ "$empty_input_yn" = "y" ]; then
-#  				break
-#  			fi
-# 		fi
-# 	fi
-# done
-
-# while true; do
-# 	printf "* Please provide your 'RNA-Seq (paired-end)' pipeline input path: \n"
-# 	read -r -p "  > " rnaseq_paired_input_path
-# 	if [ $(echo -n $rnaseq_paired_input_path | tail -c 1) = '/' ]; then
-# 		rnaseq_paired_input_path=$(echo ${rnaseq_paired_input_path%?})
-# 	fi
-#
-# 	if [ ! -d $rnaseq_paired_input_path ]; then
-# 		echo "The input path does not exist! Please check and enter the correct path."
-# 	else
-# 		if (( "$(ls $rnaseq_paired_input_path 2>/dev/null | wc -l )" > 0 )); then
-# 			break
-# 		else
-# 			printf "[WARN] - The input path is empty!. \n"
-# 			while true; do
-# 				read -r -p "CONTINUE? [Y/N]" empty_input_yn
-# 				if [ "$empty_input_yn" = "Y" ] || [ "$empty_input_yn" = "y" ] || [ "$empty_input_yn" = "N" ] || [ "$empty_input_yn" = "n" ]; then
-# 	 				break
-# 	 			fi
-# 	 		done
-#  			if [ "$empty_input_yn" = "Y" ] || [ "$empty_input_yn" = "y" ]; then
-#  				break
-#  			fi
-# 		fi
-# 	fi
-# done
-#
-# printf "\n\t***************************************************************\n"
-# printf "\t** Please provide Bowtie2 (hg38) index path to each pipeline **\n"
-# printf "\t***************************************************************\n\n"
-#
-# while true; do
-# 	printf "* Please provide the path of the Bowtie2 indices: \n"
-# 	read -r -p "  > " bowtie_index_path
-# 	if [ $(echo -n $bowtie_index_path | tail -c 1) = '/' ]; then
-# 		bowtie_index_path=$(echo ${user_data_path%?})
-# 	fi
-#
-# 	if [ ! -d $bowtie_index_path ]; then
-# 		echo "The input path does not exist! Please check and enter the correct path."
-# 	else
-# 		if (( "$(ls $bowtie_index_path 2>/dev/null | wc -l )" > 0 )); then
-# 			break
-# 		else
-# 			printf "[WARN] - The input path is empty!. \n"
-# 			while true; do
-# 				read -r -p "CONTINUE? [Y/N]" empty_input_yn
-# 				if [ "$empty_input_yn" = "Y" ] || [ "$empty_input_yn" = "y" ] || [ "$empty_input_yn" = "N" ] || [ "$empty_input_yn" = "n" ]; then
-# 	 				break
-# 	 			fi
-# 	 		done
-#  			if [ "$empty_input_yn" = "Y" ] || [ "$empty_input_yn" = "y" ]; then
-#  				printf "[WARN] - Please make sure to provide correct path before runnning pipeline!\n"
-#  				break
-#  			fi
-# 		fi
-# 	fi
-# done
-
-######################################################################################
 
 if [ "$user_os" = "Linux" ]; then
 	printf "\n** Installing essential components.. 0%%"
@@ -272,21 +150,6 @@ else
 		command -v $app >/dev/null 2>&1 || { echo >&2 "** Installing unzip.."; brew install unzip; }
 	done
 fi
-# sudo bash -c 'add-apt-repository -y ppa:chris-lea/node.js' > /dev/null 2>&1
-# printf " .. 40%%"
-# sudo bash -c "sudo sed -i -e 's/us.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list" > /dev/null 2>&1
-# command -v curl >/dev/null 2>&1 || { apt-get install -y curl > /dev/null 2>&1; }
-# printf " .. 50%%"
-# #sudo bash -c 'apt-get update' > /dev/null 2>&1
-# sudo bash -c "curl -sL https://deb.nodesource.com/setup | sudo bash -" > /dev/null 2>&1
-# printf " .. 70%%"
-# command -v nodejs >/dev/null 2>&1 || { apt-get install -y nodejs > /dev/null 2>&1; }
-# command -v node >/dev/null 2>&1 || { apt-get install -y node > /dev/null 2>&1; }
-# command -v npm >/dev/null 2>&1 || { apt-get install -y npm > /dev/null 2>&1; }
-# printf " .. 90%%"
-# command -v grunt >/dev/null 2>&1 || { npm install -g grunt-cli > /dev/null 2>&1; }
-# printf " .. 100%%, Done!\n"
-
 
 ## check Amazon EC2 server
 hn=$(curl --max-time 1 http://169.254.169.254/latest/meta-data/public-hostname > /dev/null 2>&1)
@@ -350,12 +213,6 @@ sudo docker stop $(sudo docker ps | grep "_dui_" | awk '{print $1}') > /dev/null
 sudo docker rm -f $(sudo docker ps -a | grep "_dui_" | awk '{print $1}') > /dev/null 2>&1
 sudo docker rmi -f $(sudo docker images | grep "_dui_" | awk '{print $3}') > /dev/null 2>&1
 
-if [ "$user_os" = "Linux" ] && [ $(which mysql) ]; then
-	mount_mysql="-v /var/run/mysqld/mysqld.sock:/var/run/mysqld/mysqld.sock"
-else
-	mount_mysql=""
-fi
-
 ######### sudo docker running command (SAMPLE)
 ## sudo docker run --volumes-from b6dfb3a33e5c --env input_path="/home/BCIL_pipeline_runs/input/RNAseq" --env ref_path="/home/BCIL_pipeline_runs/input/hg38" -ti bcil/pipelines:RNAseq_dockerui_paired bash /home/init.sh
 ##########################################
@@ -364,23 +221,6 @@ fi
 
 
 printf "\n************ Required ChIP-Seq pipeline tool options *************\n* Input_path\n* Reference Genome path\n* Mate Inner Distance\n* P-Value cutoff\n* Genome size\n* Band width\n******************************************************************\n\n"
-
-################### ChIP-Seq (single-end)(paired-end) ###################
-
-# echo "** Initializing ChIP-Seq (single-end) pipeline instances.."
-# pipeline_id=$(sudo docker run -d $ChIPseq_single_image bash /home/wait.sh) > /dev/null 2>&1
-
-# for i in $ChIP_Seq_inst_list
-# do
-# 	sudo docker rm -f ChIPseq_S_dui_$(echo $i) > /dev/null 2>&1
-# 	image_name="bcil/pipelines:ChIPseq_dui_single_$(echo $i)"
-# 	sudo bash -c "sudo docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
-# 	sudo bash -c "sudo docker run --privileged --name ChIPseq_S_dui_$(echo $i) $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p $(echo $dockerui_ip):$(echo $i):8090 --env insert_size='200' --env p_value='0.01' --env gsize='3000000000' --env input_path=$(echo $chipseq_single_input_path) --env ref_path=$(echo $bowtie_index_path) $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
-# done
-
-# sudo docker stop $pipeline_id > /dev/null 2>&1
-# sudo docker rm -f $pipeline_id > /dev/null 2>&1
-# sudo docker stop $(sudo docker ps | grep "_dui_single_" | awk '{print $1}') > /dev/null 2>&1
 
 ChIPseq_types="single paired"
 for type in $ChIPseq_types
@@ -402,7 +242,8 @@ do
 
 	image_name="bcil/pipelines:ChIP_Seq_dui_$(echo $type)_end"
 	sudo bash -c "sudo docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
-	#sudo bash -c "sudo docker run --privileged --name ChIP_Seq_$(echo $type)-end $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p 8090 --env insert_size=$(echo $insert_size_value) --env pvalue='' --env gsize='' --env bwidth='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+	
+	
 	sudo bash -c "sudo docker run --privileged --name ChIP_Seq_$(echo $type)-end --volumes-from $(echo $docker_sub_id) -d -p 8090 --env insert_size=$(echo $insert_size_value) --env pvalue='' --env gsize='' --env bwidth='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 
 
@@ -433,7 +274,8 @@ printf "\n************ Required RNA-Seq tool options *************\n* Input_path
 
 image_name="bcil/pipelines:RNA_Seq_dui_paired_end"
 sudo bash -c "sudo docker commit $(echo $pipeline_id) $(echo $image_name)" > /dev/null 2>&1
-#sudo bash -c "sudo docker run --privileged --name RNA_Seq_paired-end $(echo $mount_mysql) --volumes-from $(echo $docker_sub_id) -d -p 8090 --env mate_std_dev='' --env anchor_length='' --env segment_length='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
+
+
 sudo bash -c "sudo docker run --name RNA_Seq_paired-end --volumes-from $(echo $docker_sub_id) -d -p 8090 --env mate_std_dev='' --env anchor_length='' --env segment_length='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh" > /dev/null 2>&1
 
 sudo docker stop $pipeline_id > /dev/null 2>&1
@@ -468,59 +310,3 @@ sudo docker ps -a | grep _dui | awk '{print $2}'
 printf "\n***************************************************\n** Personal NGS Cloud is Ready! ( %s:9000 )\n***************************************************\n\n" "$dockerui_ip"
 
 exit
-
-
-
-
-
-
-
-
-
-#######################################################################################################################################
-#####################################################################################
-##	Testing script for MacOS below...
-#####################################################################################
-
-#!/usr/bin/env bash
-
-RNAseq_paired_image="bcil/pipelines:RNAseq_dockerui_paired"
-docker_sub_id=$(sudo docker ps | grep 'DockerUI_sub' | awk '{print $1}')
-
-echo "** Pulling RNA-Seq pipelines"
-sudo bash -c "sudo docker pull $RNAseq_paired_image" > /dev/null
-
-echo "** Removing old Dockerui instances..."
-sudo docker stop $(sudo docker ps | grep "_dui" | awk '{print $1}') > /dev/null 2>&1
-sudo docker rm -f $(sudo docker ps -a | grep "_dui" | awk '{print $1}') > /dev/null 2>&1
-sudo docker rmi -f $(sudo docker images | grep "_dui" | awk '{print $3}') > /dev/null 2>&1
-
-# if [ $(which mysql) ]; then
-#         mount_mysql="-v /var/run/mysqld/mysqld.sock:/var/run/mysqld/mysqld.sock"
-# else
-#         mount_mysql=""
-# fi
-
-echo "** Initializing RNA-Seq (paired-end) pipeline instances.."
-
-pipeline_id=$(sudo docker run -d $RNAseq_paired_image bash /home/wait.sh)
-dui_chk=$(sudo docker ps -a | grep RNA_Seq_paired_end_dui)
-if [ "$dui_chk" != "" ]; then
-        sudo docker rm -f $(sudo docker ps -a | grep RNA_Seq_paired_end_dui | awk '{print $1}')
-fi
-
-printf "\n***************** Required RNA-Seq tool options ******************\n* Input_path\n* Reference Genome path\n* Mate Inner Distance\n* Anchor Length\n* Minimum length of read segments\n***************************************************\n\n"
-
-sudo docker rm -f RNA_Seq_paired_end_dui
-image_name="bcil/pipelines:RNA_Seq_dui_paired_end"
-sudo bash -c "sudo docker commit $(echo $pipeline_id) $(echo $image_name)"
-sudo bash -c "sudo docker run --privileged --name RNA_Seq_paired-end --volumes-from $(echo $docker_sub_id) -d -p 8090 --env mate_std_dev='' --env anchor_length='' --env segment_length='' --env input_path='' --env ref_path='' $(echo $image_name) bash /home/init.sh"
-
-sudo docker stop $pipeline_id
-sudo docker rm -f $pipeline_id
-sudo docker stop $(sudo docker ps | grep "RNA_Seq_dui_paired_end" | awk '{print $1}')
-
-
-printf '** Instances are generated.\n*********************************************\n'
-sudo docker ps -a | grep _dui | awk '{print $2}'
-printf '*********************************************\n\n'
