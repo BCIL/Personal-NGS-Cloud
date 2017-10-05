@@ -11,7 +11,7 @@ $ docker run -d -p 9090:8090 --privileged -v $HOME:/home/root --name DockerUI_su
 ##1-2. Using Personal-NGS-Cloud script.
 ###
 ```
-$ git clone https://github.com/BCIL/DockerUI.git
+$ git clone https://github.com/BCIL/Personal-NGS-Cloud.git
 $ cd Personal-NGS-Cloud/script
 $ bash install-dockerui.sh
 ```
