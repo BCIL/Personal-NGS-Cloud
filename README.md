@@ -13,7 +13,9 @@ $ docker run -d -p 9090:8090 --privileged -v $HOME:/home/root --name DockerUI_su
 ```
 $ git clone https://github.com/BCIL/Personal-NGS-Cloud.git
 $ cd Personal-NGS-Cloud/script
-$ bash install-dockerui.sh
+
+$ sudo bash personal_NGS_cloud.sh.  ## for Linux
+$ bash personal_NGS_cloud.sh.  	    ## for MacOS
 ```
 ----
 ##2. Connect below address on your browser
