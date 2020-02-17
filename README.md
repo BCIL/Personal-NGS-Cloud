@@ -22,4 +22,4 @@ $ bash personal_NGS_cloud.sh.  	    ## for MacOS
 ###`http://<docker server ip>:9000`
 
 ----
-### Check the [wiki](https://github.com/kevana/uifordocker/wiki) for more info about using UI For Docker
+### Check the [wiki](https://github.com/kevana/ui-for-docker/wiki) for more info about using UI For Docker
